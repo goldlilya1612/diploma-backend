@@ -6,15 +6,15 @@ import (
 )
 
 type User struct {
-	ID    uuid.UUID `gorm:"type:uuid;default:uuid_generate_v4();primary_key"`
-	Name  string    `gorm:"type:varchar(255);not null"`
-	Email string    `gorm:"uniqueIndex;not null"`
-	Role  string    `gorm:"type:varchar(255);notnull"`
-	//Provider  string    `gorm:"not null"`
-	Verified bool `gorm:"not null"`
+	ID       uuid.UUID `gorm:"type:uuid;default:uuid_generate_v4();primary_key"`
+	Name     string    `gorm:"type:varchar(255);not null"`
+	Email    string    `gorm:"uniqueIndex;not null"`
+	Password string    `gorm:"not null"`
+	Role     string    `gorm:"type:varchar(255);notnull"`
+	Verified bool      `gorm:"not null"`
 
-	CreateAt time.Time
-	UpdateAt time.Time
+	CreatedAt time.Time
+	UpdatedAt time.Time
 }
 
 type SignUp struct {
@@ -22,10 +22,9 @@ type SignUp struct {
 	Email           string `json:"email" binding:"required,email"`
 	Password        string `json:"password" binding:"required,min=8"`
 	PasswordConfirm string `json:"passwordConfirm" binding:"required"`
-	Photo           string `json:"photo" binding:"required"`
 }
 
-type SignInInput struct {
+type SignIn struct {
 	Email    string `json:"email"  binding:"required,email"`
 	Password string `json:"password"  binding:"required"`
 }
@@ -35,7 +34,6 @@ type UserResponse struct {
 	Name  string    `json:"name,omitempty"`
 	Email string    `json:"email,omitempty"`
 	Role  string    `json:"role,omitempty"`
-	//Provider  string    `json:"provider"`
 
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`

@@ -8,19 +8,19 @@ import (
 
 type GinServer struct {
 	config *Config
-	server *gin.Engine
+	Server *gin.Engine
 }
 
 func NewGinServer(config *Config) *GinServer {
 
 	return &GinServer{
 		config: config,
-		server: gin.Default(),
+		Server: gin.Default(),
 	}
 }
 
 func (gs *GinServer) PrepareHealthchecker() {
-	router := gs.server.Group("/api")
+	router := gs.Server.Group("/api")
 	router.GET("/healthchecker", func(ctx *gin.Context) {
 		message := "Connected"
 		status := "success"
@@ -29,5 +29,5 @@ func (gs *GinServer) PrepareHealthchecker() {
 }
 
 func (gs *GinServer) Start() {
-	log.Fatal(gs.server.Run(":" + gs.config.Port))
+	log.Fatal(gs.Server.Run(":" + gs.config.Port))
 }

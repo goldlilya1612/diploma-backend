@@ -9,7 +9,7 @@ import (
 
 type PostgreSQL struct {
 	config *Config
-	db     *gorm.DB
+	DB     *gorm.DB
 }
 
 func NewPostgreSQL(config *Config) *PostgreSQL {
@@ -34,19 +34,19 @@ func (p *PostgreSQL) Connect() error {
 		return fmt.Errorf("Unable to connect to database: %v\n", err)
 	}
 
-	p.db = db
+	p.DB = db
 
 	return nil
 }
 
 func (p *PostgreSQL) InitDB() error {
 
-	tx := p.db.Exec("CREATE EXTENSION IF NOT EXISTS \"uuid-ossp\"")
+	tx := p.DB.Exec("CREATE EXTENSION IF NOT EXISTS \"uuid-ossp\"")
 	if tx.Error != nil {
 		return tx.Error
 	}
 
-	err := p.db.AutoMigrate(&models.User{})
+	err := p.DB.AutoMigrate(&models.User{})
 	if err != nil {
 		return err
 	}
