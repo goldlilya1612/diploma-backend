@@ -1,9 +1,11 @@
 package http
 
 import (
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"log"
 	"net/http"
+	"time"
 )
 
 type GinServer struct {
@@ -13,9 +15,19 @@ type GinServer struct {
 
 func NewGinServer(config *Config) *GinServer {
 
+	serv := gin.Default()
+	serv.Use(cors.New(cors.Config{
+		AllowOrigins:     []string{"http://localhost:3000"},
+		AllowMethods:     []string{"GET", "POST"},
+		AllowHeaders:     []string{"Origin", "Content-Length", "Content-Type"},
+		ExposeHeaders:    []string{"Content-Length"},
+		AllowCredentials: true,
+		MaxAge:           12 * time.Hour,
+	}))
+
 	return &GinServer{
 		config: config,
-		Server: gin.Default(),
+		Server: serv,
 	}
 }
 
