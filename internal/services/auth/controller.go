@@ -15,7 +15,8 @@ const (
 	errStatus     = "error"
 	successStatus = "success"
 
-	userRole = "user"
+	studentRole  = "student"
+	lecturerRole = "lecturer"
 )
 
 type AuthController struct {
@@ -57,7 +58,7 @@ func (ac *AuthController) SignUpUser(ctx *gin.Context) {
 		Name:      payload.Name,
 		Email:     payload.Email,
 		Password:  hashedPassword,
-		Role:      userRole,
+		Role:      payload.Role,
 		Verified:  true,
 		CreatedAt: now,
 		UpdatedAt: now,

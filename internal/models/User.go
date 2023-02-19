@@ -17,9 +17,34 @@ type User struct {
 	UpdatedAt time.Time
 }
 
+type Student struct {
+	ID       uuid.UUID `gorm:"type:uuid;default:uuid_generate_v4();primary_key"`
+	Name     string    `gorm:"type:varchar(255);not null"`
+	Email    string    `gorm:"uniqueIndex;not null"`
+	Password string    `gorm:"not null"`
+	Role     string    `gorm:"type:varchar(255);notnull"`
+	Verified bool      `gorm:"not null"`
+
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
+
+type Lecturer struct {
+	ID       uuid.UUID `gorm:"type:uuid;default:uuid_generate_v4();primary_key"`
+	Name     string    `gorm:"type:varchar(255);not null"`
+	Email    string    `gorm:"uniqueIndex;not null"`
+	Password string    `gorm:"not null"`
+	Role     string    `gorm:"type:varchar(255);notnull"`
+	Verified bool      `gorm:"not null"`
+
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
+
 type SignUp struct {
 	Name            string `json:"name" binding:"required"`
 	Email           string `json:"email" binding:"required,email"`
+	Role            string `json:"role" binding:"required"`
 	Password        string `json:"password" binding:"required,min=8"`
 	PasswordConfirm string `json:"passwordConfirm" binding:"required"`
 }
