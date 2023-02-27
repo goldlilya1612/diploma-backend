@@ -6,8 +6,8 @@ import (
 )
 
 type Config struct {
-	Port string
-	Cors cors.Config
+	Port string      `toml:"port"`
+	Cors cors.Config `toml:"cors"`
 }
 
 func NewConfig() *Config {
@@ -15,9 +15,9 @@ func NewConfig() *Config {
 		Port: "8080",
 		Cors: cors.Config{
 			AllowOrigins:     []string{"http://localhost:3000"},
-			AllowMethods:     []string{"GET", "POST"},
-			AllowHeaders:     []string{"Origin", "Content-Length", "Content-Type"},
-			ExposeHeaders:    []string{"Content-Length"},
+			AllowMethods:     []string{"*"},
+			AllowHeaders:     []string{"*"},
+			ExposeHeaders:    []string{"*"},
 			AllowCredentials: true,
 			MaxAge:           12 * time.Hour,
 		},

@@ -46,7 +46,12 @@ func (p *PostgreSQL) InitDB() error {
 		return tx.Error
 	}
 
-	err := p.DB.AutoMigrate(&models.User{})
+	err := p.DB.AutoMigrate(
+		&models.User{},
+		&models.Student{},
+		&models.Lecturer{},
+		models.Course{},
+	)
 	if err != nil {
 		return err
 	}

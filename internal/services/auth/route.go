@@ -3,12 +3,12 @@ package auth
 import "github.com/gin-gonic/gin"
 
 type AuthRouteController struct {
-	AuthRouteController AuthController
+	AuthController *AuthController
 }
 
 func NewAuthRouteController(authController *AuthController) AuthRouteController {
 	return AuthRouteController{
-		AuthRouteController: *authController,
+		AuthController: authController,
 	}
 }
 
@@ -16,8 +16,8 @@ func (arc *AuthRouteController) AuthRoute(rg *gin.RouterGroup) {
 
 	router := rg.Group("/auth")
 
-	router.POST("/signup", arc.AuthRouteController.SignUpUser)
-	router.POST("/signin", arc.AuthRouteController.SignInUser)
-	router.POST("/refresh", arc.AuthRouteController.RefreshAccessToken)
-	router.POST("/logout", arc.AuthRouteController.LogoutUser)
+	router.POST("/signup", arc.AuthController.SignUpUser)
+	router.POST("/signin", arc.AuthController.SignInUser)
+	router.POST("/refresh", arc.AuthController.RefreshAccessToken)
+	router.POST("/logout", arc.AuthController.DeserializeUser(), arc.AuthController.LogoutUser)
 }
