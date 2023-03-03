@@ -2,6 +2,7 @@ package models
 
 import (
 	"github.com/google/uuid"
+	"mime/multipart"
 	"time"
 )
 
@@ -10,24 +11,24 @@ type Course struct {
 	Name        string    `gorm:"type:varchar(255);not null"`
 	CreatorID   uuid.UUID `gorm:"type:uuid;not null"`
 	CreatorName string    `gorm:"type:varchar(255);not null"`
-	Image       string    `gorm:"type:varchar(255)"`
+	ImageURL    string    `gorm:"type:varchar(255)"`
 	Category    string    `gorm:"type:varchar(255);not null"`
 	Description string    `gorm:"type:text;not null"`
 	//Chapters    Chapters
 
-	CreateAt time.Time
-	UpdateAt time.Time
+	CreatedAt time.Time
+	UpdatedAt time.Time
 
 	Lecturer Lecturer `gorm:"foreignKey:CreatorID;references:UserID"`
 }
 
 type CreateCourse struct {
-	Name        string    `json:"name" binding:"required"`
-	CreatorID   uuid.UUID `json:"creatorID" binding:"required"`
-	CreatorName string    `json:"creatorName" binding:"required"`
-	Image       string    `json:"image" binding:"required"`
-	Category    string    `json:"category" binding:"required"`
-	Description string    `json:"description" binding:"required"`
+	Name        string         `form:"name" binding:"required"`
+	CreatorID   string         `form:"creatorID" binding:"required,uuid"`
+	CreatorName string         `form:"creatorName" binding:"required"`
+	Image       multipart.File `form:"file,omitempty" validate:"required"`
+	Category    string         `form:"category" binding:"required"`
+	Description string         `form:"description" binding:"required"`
 }
 
 type CourseResponse struct {
@@ -35,13 +36,13 @@ type CourseResponse struct {
 	Name        string    `json:"name" binding:"required"`
 	CreatorID   uuid.UUID `json:"creatorID" binding:"required"`
 	CreatorName string    `json:"creatorName" binding:"required"`
-	Image       string    `json:"image" binding:"required"`
+	ImageURL    string    `json:"imageURL" binding:"required"`
 	Category    string    `json:"category" binding:"required"`
 	Description string    `json:"description" binding:"required"`
 	Route       string    `json:"route" binding:"required"`
 
-	CreateAt time.Time `json:"createAt"`
-	UpdateAt time.Time `json:"updateAt"`
+	CreatedAt time.Time `json:"createdAt"`
+	UpdatedAt time.Time `json:"updatedAt"`
 }
 
 type Chapters struct {

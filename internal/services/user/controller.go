@@ -4,7 +4,8 @@ import (
 	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/goldlilya1612/diploma-backend/internal/models"
-	"github.com/goldlilya1612/diploma-backend/internal/services"
+	"github.com/goldlilya1612/diploma-backend/internal/services/auth"
+	serv "github.com/goldlilya1612/diploma-backend/internal/transport/http"
 	"gorm.io/gorm"
 	"net/http"
 )
@@ -25,11 +26,11 @@ func (uc *UsersController) GetMe(ctx *gin.Context) {
 
 	var groups []string
 	switch currentUser.Role {
-	case services.StudentRole:
+	case auth.StudentRole:
 		student := &models.Student{}
 		uc.DB.First(&student, "user_id = ?", fmt.Sprint(currentUser.ID))
 		groups = []string{student.Group}
-	case services.LecturerRole:
+	case auth.LecturerRole:
 		lecturer := &models.Lecturer{}
 		uc.DB.First(&lecturer, "user_id = ?", fmt.Sprint(currentUser.ID))
 		groups = lecturer.Groups
@@ -46,5 +47,9 @@ func (uc *UsersController) GetMe(ctx *gin.Context) {
 		UpdatedAt: currentUser.UpdatedAt,
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{"status": services.SuccessStatus, "data": gin.H{"user": userResponse}})
+	ctx.JSON(http.StatusOK, models.HTTPResponse{
+		Status:     serv.SuccessResponseStatus,
+		StatusCode: http.StatusOK,
+		Data:       map[string]interface{}{"user": userResponse},
+	})
 }

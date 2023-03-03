@@ -4,8 +4,10 @@ import (
 	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/goldlilya1612/diploma-backend/internal/models"
-	"github.com/goldlilya1612/diploma-backend/internal/services"
+	"github.com/goldlilya1612/diploma-backend/internal/services/media"
+	serv "github.com/goldlilya1612/diploma-backend/internal/transport/http"
 	"github.com/goldlilya1612/diploma-backend/internal/utils"
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 	"net/http"
@@ -26,22 +28,44 @@ func NewCoursesController(DB *gorm.DB) *CoursesController {
 func (cc *CoursesController) CreateCourse(ctx *gin.Context) {
 	var payload *models.CreateCourse
 
-	err := ctx.ShouldBindJSON(&payload)
+	imageURL, err := media.FileUpload(ctx)
 	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"status": services.ErrStatus, "message": err})
+		ctx.JSON(http.StatusInternalServerError, models.HTTPResponse{
+			Status:     serv.ErrResponseStatus,
+			StatusCode: http.StatusInternalServerError,
+			Message:    err.Error(),
+		})
+		return
+	}
+
+	err = ctx.ShouldBind(&payload)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, models.HTTPResponse{
+			Status:     serv.ErrResponseStatus,
+			StatusCode: http.StatusBadRequest,
+			Message:    err.Error(),
+		})
 		return
 	}
 
 	currentUser := ctx.MustGet("currentUser").(models.User)
-	if payload.CreatorID != currentUser.ID {
+	if uuid.Must(uuid.Parse(payload.CreatorID)) != currentUser.ID {
 		message := "Access denied"
-		ctx.JSON(http.StatusForbidden, gin.H{"status": services.ErrStatus, "message": message})
+		ctx.JSON(http.StatusForbidden, models.HTTPResponse{
+			Status:     serv.ErrResponseStatus,
+			StatusCode: http.StatusForbidden,
+			Message:    message,
+		})
 		return
 	}
 
 	if payload.CreatorName != currentUser.Name {
 		message := "The creator's name does not match the current user's name"
-		ctx.JSON(http.StatusBadRequest, gin.H{"status": services.ErrStatus, "message": message})
+		ctx.JSON(http.StatusBadRequest, models.HTTPResponse{
+			Status:     serv.ErrResponseStatus,
+			StatusCode: http.StatusBadRequest,
+			Message:    message,
+		})
 		return
 	}
 
@@ -49,36 +73,44 @@ func (cc *CoursesController) CreateCourse(ctx *gin.Context) {
 	newCourse := models.Course{
 		Name:        payload.Name,
 		CreatorName: payload.CreatorName,
-		CreatorID:   payload.CreatorID,
-		Image:       payload.Image,
+		CreatorID:   uuid.Must(uuid.Parse(payload.CreatorID)),
+		ImageURL:    imageURL,
 		Category:    payload.Category,
 		Description: payload.Description,
 
-		CreateAt: now,
-		UpdateAt: now,
+		CreatedAt: now,
+		UpdatedAt: now,
 	}
 
 	res := cc.DB.Create(&newCourse)
 	if res.Error != nil {
-		ctx.JSON(http.StatusConflict, gin.H{"status": services.ErrStatus, "message": res.Error.Error()})
+		ctx.JSON(http.StatusConflict, models.HTTPResponse{
+			Status:     serv.ErrResponseStatus,
+			StatusCode: http.StatusConflict,
+			Message:    res.Error.Error(),
+		})
 		return
 	}
 
 	courseResponse := &models.CourseResponse{
 		ID:          newCourse.ID,
 		Name:        payload.Name,
-		CreatorID:   payload.CreatorID,
+		CreatorID:   uuid.Must(uuid.Parse(payload.CreatorID)),
 		CreatorName: payload.CreatorName,
-		Image:       payload.Image,
+		ImageURL:    imageURL,
 		Category:    payload.Category,
 		Description: payload.Description,
 		Route:       utils.Latinizer(payload.Name),
 
-		CreateAt: now,
-		UpdateAt: now,
+		CreatedAt: newCourse.CreatedAt,
+		UpdatedAt: newCourse.UpdatedAt,
 	}
 
-	ctx.JSON(http.StatusCreated, gin.H{"status": services.SuccessStatus, "data": gin.H{"course": courseResponse}})
+	ctx.JSON(http.StatusCreated, models.HTTPResponse{
+		Status:     serv.SuccessResponseStatus,
+		StatusCode: http.StatusCreated,
+		Data:       map[string]interface{}{"course": courseResponse},
+	})
 }
 
 func (cc *CoursesController) GetCourse(ctx *gin.Context) {
@@ -93,10 +125,18 @@ func (cc *CoursesController) GetCourse(ctx *gin.Context) {
 		res := cc.DB.First(&course, "id = ?", fmt.Sprint(id))
 		if res.Error != nil && strings.Contains(res.Error.Error(), "record not found") {
 			message := fmt.Sprintf("Course with id=%s not found", id)
-			ctx.JSON(http.StatusBadRequest, gin.H{"status": services.ErrStatus, "message": message})
+			ctx.JSON(http.StatusBadRequest, models.HTTPResponse{
+				Status:     serv.ErrResponseStatus,
+				StatusCode: http.StatusBadRequest,
+				Message:    message,
+			})
 			return
 		} else if res.Error != nil {
-			ctx.JSON(http.StatusBadRequest, gin.H{"status": services.ErrStatus, "message": res.Error.Error()})
+			ctx.JSON(http.StatusBadRequest, models.HTTPResponse{
+				Status:     serv.ErrResponseStatus,
+				StatusCode: http.StatusBadRequest,
+				Message:    res.Error.Error(),
+			})
 			return
 		}
 
@@ -105,18 +145,22 @@ func (cc *CoursesController) GetCourse(ctx *gin.Context) {
 			Name:        course.Name,
 			CreatorID:   course.CreatorID,
 			CreatorName: course.Name,
-			Image:       course.Image,
+			ImageURL:    course.ImageURL,
 			Category:    course.Category,
 			Description: course.Description,
 			Route:       utils.Latinizer(course.Name),
 
-			CreateAt: course.CreateAt,
-			UpdateAt: course.UpdateAt,
+			CreatedAt: course.CreatedAt,
+			UpdatedAt: course.UpdatedAt,
 		}
 		coursesResponse = append(coursesResponse, courseResponse)
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{"status": services.SuccessStatus, "data": gin.H{"courses": coursesResponse}})
+	ctx.JSON(http.StatusOK, models.HTTPResponse{
+		Status:     serv.SuccessResponseStatus,
+		StatusCode: http.StatusOK,
+		Data:       map[string]interface{}{"courses": coursesResponse},
+	})
 }
 
 func (cc *CoursesController) GetCourses(ctx *gin.Context) {
@@ -126,7 +170,11 @@ func (cc *CoursesController) GetCourses(ctx *gin.Context) {
 	var courses []models.Course
 	res := cc.DB.Find(&courses)
 	if res.Error != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"status": services.ErrStatus, "message": res.Error.Error()})
+		ctx.JSON(http.StatusBadRequest, models.HTTPResponse{
+			Status:     serv.ErrResponseStatus,
+			StatusCode: http.StatusBadRequest,
+			Message:    res.Error.Error(),
+		})
 		return
 	}
 
@@ -136,18 +184,22 @@ func (cc *CoursesController) GetCourses(ctx *gin.Context) {
 			Name:        c.Name,
 			CreatorID:   c.CreatorID,
 			CreatorName: c.CreatorName,
-			Image:       c.Image,
+			ImageURL:    c.ImageURL,
 			Category:    c.Category,
 			Description: c.Description,
 			Route:       utils.Latinizer(c.Name),
 
-			CreateAt: c.CreateAt,
-			UpdateAt: c.UpdateAt,
+			CreatedAt: c.CreatedAt,
+			UpdatedAt: c.UpdatedAt,
 		}
 		coursesResponse = append(coursesResponse, courseResponse)
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{"status": services.SuccessStatus, "data": gin.H{"courses": coursesResponse}})
+	ctx.JSON(http.StatusOK, models.HTTPResponse{
+		Status:     serv.SuccessResponseStatus,
+		StatusCode: http.StatusOK,
+		Data:       map[string]interface{}{"courses": coursesResponse},
+	})
 }
 
 func (cc *CoursesController) DeleteCourse(ctx *gin.Context) {
@@ -162,7 +214,11 @@ func (cc *CoursesController) DeleteCourse(ctx *gin.Context) {
 		course := models.Course{}
 		res := cc.DB.Clauses(clause.Returning{}).Where("id = ?", fmt.Sprint(id)).Delete(&course)
 		if res.Error != nil {
-			ctx.JSON(http.StatusBadRequest, gin.H{"status": services.ErrStatus, "message": res.Error.Error()})
+			ctx.JSON(http.StatusBadRequest, models.HTTPResponse{
+				Status:     serv.ErrResponseStatus,
+				StatusCode: http.StatusBadRequest,
+				Message:    res.Error.Error(),
+			})
 			return
 		}
 
@@ -171,16 +227,20 @@ func (cc *CoursesController) DeleteCourse(ctx *gin.Context) {
 			Name:        course.Name,
 			CreatorID:   course.CreatorID,
 			CreatorName: course.CreatorName,
-			Image:       course.Image,
+			ImageURL:    course.ImageURL,
 			Category:    course.Category,
 			Description: course.Description,
 			Route:       utils.Latinizer(course.Name),
 
-			CreateAt: course.CreateAt,
-			UpdateAt: course.UpdateAt,
+			CreatedAt: course.CreatedAt,
+			UpdatedAt: course.UpdatedAt,
 		}
 		coursesResponse = append(coursesResponse, courseResponse)
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{"status": services.SuccessStatus, "data": gin.H{"deletedCourses": coursesResponse}})
+	ctx.JSON(http.StatusOK, models.HTTPResponse{
+		Status:     serv.SuccessResponseStatus,
+		StatusCode: http.StatusOK,
+		Data:       map[string]interface{}{"deletedCourses": coursesResponse},
+	})
 }

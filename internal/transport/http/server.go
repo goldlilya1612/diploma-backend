@@ -7,6 +7,11 @@ import (
 	"net/http"
 )
 
+const (
+	ErrResponseStatus     = "error"
+	SuccessResponseStatus = "success"
+)
+
 type GinServer struct {
 	config *Config
 	Server *gin.Engine
