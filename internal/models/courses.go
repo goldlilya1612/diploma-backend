@@ -24,8 +24,14 @@ type Course struct {
 
 type CreateCourse struct {
 	Name        string         `form:"name" binding:"required"`
-	CreatorID   string         `form:"creatorID" binding:"required,uuid"`
-	CreatorName string         `form:"creatorName" binding:"required"`
+	Image       multipart.File `form:"file,omitempty" validate:"required"`
+	Category    string         `form:"category" binding:"required"`
+	Description string         `form:"description" binding:"required"`
+}
+
+type UpdateCourse struct {
+	ID          int            `form:"id" binding:"required"`
+	Name        string         `form:"name" binding:"required"`
 	Image       multipart.File `form:"file,omitempty" validate:"required"`
 	Category    string         `form:"category" binding:"required"`
 	Description string         `form:"description" binding:"required"`
