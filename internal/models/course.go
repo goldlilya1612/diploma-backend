@@ -2,7 +2,6 @@ package models
 
 import (
 	"github.com/google/uuid"
-	"mime/multipart"
 	"time"
 )
 
@@ -11,30 +10,30 @@ type Course struct {
 	Name        string    `gorm:"type:varchar(255);not null"`
 	CreatorID   uuid.UUID `gorm:"type:uuid;not null"`
 	CreatorName string    `gorm:"type:varchar(255);not null"`
-	Image       int       `gorm:"type:integer;not null"`
+	Image       int       `gorm:"type:integer"`
 	Category    string    `gorm:"type:varchar(255);not null"`
 	Description string    `gorm:"type:text;not null"`
 
 	CreatedAt time.Time
 	UpdatedAt time.Time
 
-	Images   Images   `gorm:"foreignKey:Image"`
+	Images   Images   `gorm:"foreignKey:Image;constraint:OnDelete:CASCADE;"`
 	Lecturer Lecturer `gorm:"foreignKey:CreatorID;references:UserID"`
 }
 
 type CreateCourse struct {
-	Name        string         `form:"name" binding:"required"`
-	Image       multipart.File `form:"file,omitempty" validate:"required"`
-	Category    string         `form:"category" binding:"required"`
-	Description string         `form:"description" binding:"required"`
+	Name string `form:"name" binding:"required"`
+	//Image       multipart.File `form:"image,omitempty" validate:"required"`
+	Category    string `form:"category" binding:"required"`
+	Description string `form:"description" binding:"required"`
 }
 
 type UpdateCourse struct {
-	ID          int            `form:"id" binding:"required"`
-	Name        string         `form:"name" binding:"required"`
-	Image       multipart.File `form:"file,omitempty" validate:"required"`
-	Category    string         `form:"category" binding:"required"`
-	Description string         `form:"description" binding:"required"`
+	ID   int    `form:"id" binding:"required"`
+	Name string `form:"name" binding:"required"`
+	//Image       multipart.File `form:"image,omitempty" validate:"required"`
+	Category    string `form:"category" binding:"required"`
+	Description string `form:"description" binding:"required"`
 }
 
 type CourseResponse struct {

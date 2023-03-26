@@ -25,7 +25,7 @@ func (crc *CoursesRouteController) CoursesRoute(rg *gin.RouterGroup) {
 	router.POST("/create", crc.authController.DeserializeUser(), crc.authController.CheckAccessRole(auth.LecturerRole), crc.CoursesRouteController.CreateCourse)
 	router.GET("/get-course", crc.authController.DeserializeUser(), crc.CoursesRouteController.GetCourse)
 	router.GET("/get-courses", crc.authController.DeserializeUser(), crc.CoursesRouteController.GetCourses)
-	router.PATCH("/update-course", crc.authController.DeserializeUser(), crc.authController.CheckAccessRole(auth.LecturerRole), crc.CoursesRouteController.UpdateCourse)
+	router.PATCH("/update", crc.authController.DeserializeUser(), crc.authController.CheckAccessRole(auth.LecturerRole), crc.CoursesRouteController.UpdateCourse)
 	router.DELETE("/delete", crc.authController.DeserializeUser(), crc.authController.CheckAccessRole(auth.LecturerRole), crc.CoursesRouteController.DeleteCourse)
 
 	router.StaticFS("/images", http.Dir("resources/images"))
