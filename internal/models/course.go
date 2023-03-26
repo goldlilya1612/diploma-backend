@@ -11,14 +11,14 @@ type Course struct {
 	Name        string    `gorm:"type:varchar(255);not null"`
 	CreatorID   uuid.UUID `gorm:"type:uuid;not null"`
 	CreatorName string    `gorm:"type:varchar(255);not null"`
-	ImageURL    string    `gorm:"type:varchar(255)"`
+	Image       int       `gorm:"type:integer;not null"`
 	Category    string    `gorm:"type:varchar(255);not null"`
 	Description string    `gorm:"type:text;not null"`
-	//Chapters    Chapters
 
 	CreatedAt time.Time
 	UpdatedAt time.Time
 
+	Images   Images   `gorm:"foreignKey:Image"`
 	Lecturer Lecturer `gorm:"foreignKey:CreatorID;references:UserID"`
 }
 
@@ -42,14 +42,11 @@ type CourseResponse struct {
 	Name        string    `json:"name" binding:"required"`
 	CreatorID   uuid.UUID `json:"creatorID" binding:"required"`
 	CreatorName string    `json:"creatorName" binding:"required"`
-	ImageURL    string    `json:"imageURL" binding:"required"`
+	Image       Images    `json:"image" binding:"required"`
 	Category    string    `json:"category" binding:"required"`
 	Description string    `json:"description" binding:"required"`
 	Route       string    `json:"route" binding:"required"`
 
 	CreatedAt time.Time `json:"createdAt"`
 	UpdatedAt time.Time `json:"updatedAt"`
-}
-
-type Chapters struct {
 }

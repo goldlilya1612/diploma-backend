@@ -1,6 +1,7 @@
 package courses
 
 import (
+	"errors"
 	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/goldlilya1612/diploma-backend/internal/models"
@@ -9,7 +10,9 @@ import (
 	"github.com/goldlilya1612/diploma-backend/internal/utils"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
+	"log"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 )
@@ -24,24 +27,37 @@ func NewCoursesController(DB *gorm.DB) *CoursesController {
 	}
 }
 
+func deleteImageIfError(path string) {
+
+	if _, err := os.Stat(path); errors.Is(err, os.ErrNotExist) {
+		return
+	}
+
+	err := os.Remove(path)
+	if err != nil {
+		// TODO: интегрировать с логером Gin
+		log.Printf("[ERROR] File deletion error: %s", err.Error())
+	}
+}
+
 func (cc *CoursesController) CreateCourse(ctx *gin.Context) {
 	var payload *models.CreateCourse
 
-	imageURL, err := media.FileUpload(ctx)
+	err := ctx.ShouldBind(&payload)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, models.HTTPResponse{
+		ctx.JSON(http.StatusBadRequest, models.HTTPResponse{
 			Status:     serv.ErrResponseStatus,
-			StatusCode: http.StatusInternalServerError,
+			StatusCode: http.StatusBadRequest,
 			Message:    err.Error(),
 		})
 		return
 	}
 
-	err = ctx.ShouldBind(&payload)
+	imageName, imagePath, imageURL, err := media.ImageUpload(ctx)
 	if err != nil {
-		ctx.JSON(http.StatusBadRequest, models.HTTPResponse{
+		ctx.JSON(http.StatusInternalServerError, models.HTTPResponse{
 			Status:     serv.ErrResponseStatus,
-			StatusCode: http.StatusBadRequest,
+			StatusCode: http.StatusInternalServerError,
 			Message:    err.Error(),
 		})
 		return
@@ -54,9 +70,14 @@ func (cc *CoursesController) CreateCourse(ctx *gin.Context) {
 		Name:        payload.Name,
 		CreatorName: currentUser.Name,
 		CreatorID:   currentUser.ID,
-		ImageURL:    imageURL,
 		Category:    payload.Category,
 		Description: payload.Description,
+
+		Images: models.Images{
+			Name: imageName,
+			Path: imagePath,
+			URL:  imageURL,
+		},
 
 		CreatedAt: now,
 		UpdatedAt: now,
@@ -64,6 +85,7 @@ func (cc *CoursesController) CreateCourse(ctx *gin.Context) {
 
 	res := cc.DB.Create(&newCourse)
 	if res.Error != nil {
+		deleteImageIfError(imagePath)
 		ctx.JSON(http.StatusConflict, models.HTTPResponse{
 			Status:     serv.ErrResponseStatus,
 			StatusCode: http.StatusConflict,
@@ -77,7 +99,7 @@ func (cc *CoursesController) CreateCourse(ctx *gin.Context) {
 		Name:        newCourse.Name,
 		CreatorID:   currentUser.ID,
 		CreatorName: currentUser.Name,
-		ImageURL:    imageURL,
+		Image:       newCourse.Images,
 		Category:    newCourse.Category,
 		Description: newCourse.Description,
 		Route:       utils.Latinizer(payload.Name),
@@ -102,7 +124,7 @@ func (cc *CoursesController) GetCourse(ctx *gin.Context) {
 
 	for _, id := range ids {
 		course := models.Course{}
-		res := cc.DB.First(&course, "id = ?", fmt.Sprint(id))
+		res := cc.DB.InnerJoins("Images").First(&course, "Courses.id = ?", id)
 		if res.Error != nil && strings.Contains(res.Error.Error(), "record not found") {
 			message := fmt.Sprintf("Course with id=%s not found", id)
 			ctx.JSON(http.StatusBadRequest, models.HTTPResponse{
@@ -124,8 +146,8 @@ func (cc *CoursesController) GetCourse(ctx *gin.Context) {
 			ID:          course.ID,
 			Name:        course.Name,
 			CreatorID:   course.CreatorID,
-			CreatorName: course.Name,
-			ImageURL:    course.ImageURL,
+			CreatorName: course.CreatorName,
+			Image:       course.Images,
 			Category:    course.Category,
 			Description: course.Description,
 			Route:       utils.Latinizer(course.Name),
@@ -148,7 +170,7 @@ func (cc *CoursesController) GetCourses(ctx *gin.Context) {
 	var coursesResponse []models.CourseResponse
 
 	var courses []models.Course
-	res := cc.DB.Find(&courses)
+	res := cc.DB.InnerJoins("Images").Find(&courses)
 	if res.Error != nil {
 		ctx.JSON(http.StatusBadRequest, models.HTTPResponse{
 			Status:     serv.ErrResponseStatus,
@@ -164,7 +186,7 @@ func (cc *CoursesController) GetCourses(ctx *gin.Context) {
 			Name:        c.Name,
 			CreatorID:   c.CreatorID,
 			CreatorName: c.CreatorName,
-			ImageURL:    c.ImageURL,
+			Image:       c.Images,
 			Category:    c.Category,
 			Description: c.Description,
 			Route:       utils.Latinizer(c.Name),
@@ -185,17 +207,7 @@ func (cc *CoursesController) GetCourses(ctx *gin.Context) {
 func (cc *CoursesController) UpdateCourse(ctx *gin.Context) {
 	var payload *models.UpdateCourse
 
-	imageURL, err := media.FileUpload(ctx)
-	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, models.HTTPResponse{
-			Status:     serv.ErrResponseStatus,
-			StatusCode: http.StatusInternalServerError,
-			Message:    err.Error(),
-		})
-		return
-	}
-
-	err = ctx.ShouldBind(&payload)
+	err := ctx.ShouldBind(&payload)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, models.HTTPResponse{
 			Status:     serv.ErrResponseStatus,
@@ -206,7 +218,7 @@ func (cc *CoursesController) UpdateCourse(ctx *gin.Context) {
 	}
 
 	course := models.Course{}
-	res := cc.DB.First(&course, "id = ?", payload.ID)
+	res := cc.DB.InnerJoins("Images").First(&course, "Courses.id = ?", payload.ID)
 	if res.Error != nil && strings.Contains(res.Error.Error(), "record not found") {
 		message := fmt.Sprintf("Course with id=%s not found", payload.ID)
 		ctx.JSON(http.StatusBadRequest, models.HTTPResponse{
@@ -245,13 +257,41 @@ func (cc *CoursesController) UpdateCourse(ctx *gin.Context) {
 		return
 	}
 
-	res = cc.DB.Model(&course).Updates(models.Course{
+	imageName, imagePath, imageURL, err := media.ImageUpload(ctx)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, models.HTTPResponse{
+			Status:     serv.ErrResponseStatus,
+			StatusCode: http.StatusInternalServerError,
+			Message:    err.Error(),
+		})
+		return
+	}
+
+	if imageName != "no image" {
+		err = cc.DB.Model(&course).Association("Images").Replace(&course.Image, &models.Images{
+			ID:   course.Image,
+			Name: imageName,
+			Path: imagePath,
+			URL:  imageURL,
+		})
+		if err != nil {
+			deleteImageIfError(imagePath)
+			ctx.JSON(http.StatusConflict, models.HTTPResponse{
+				Status:     serv.ErrResponseStatus,
+				StatusCode: http.StatusConflict,
+				Message:    err.Error(),
+			})
+			return
+		}
+	}
+
+	res = cc.DB.Model(&course).Session(&gorm.Session{FullSaveAssociations: true}).Updates(models.Course{
 		Name:        payload.Name,
-		ImageURL:    imageURL,
 		Category:    payload.Category,
 		Description: payload.Description,
 	})
 	if res.Error != nil {
+		deleteImageIfError(imagePath)
 		ctx.JSON(http.StatusConflict, models.HTTPResponse{
 			Status:     serv.ErrResponseStatus,
 			StatusCode: http.StatusConflict,
@@ -265,7 +305,7 @@ func (cc *CoursesController) UpdateCourse(ctx *gin.Context) {
 		Name:        course.Name,
 		CreatorID:   course.CreatorID,
 		CreatorName: course.CreatorName,
-		ImageURL:    course.ImageURL,
+		Image:       course.Images,
 		Category:    course.Category,
 		Description: course.Description,
 		Route:       utils.Latinizer(payload.Name),
@@ -334,7 +374,7 @@ func (cc *CoursesController) DeleteCourse(ctx *gin.Context) {
 			Name:        course.Name,
 			CreatorID:   course.CreatorID,
 			CreatorName: course.CreatorName,
-			ImageURL:    course.ImageURL,
+			Image:       course.Images,
 			Category:    course.Category,
 			Description: course.Description,
 			Route:       utils.Latinizer(course.Name),

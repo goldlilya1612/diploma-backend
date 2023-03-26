@@ -50,7 +50,10 @@ func (p *PostgreSQL) InitDB() error {
 		&models.User{},
 		&models.Student{},
 		&models.Lecturer{},
-		models.Course{},
+		&models.Course{},
+		&models.Images{},
+		&models.Chapter{},
+		&models.Article{},
 	)
 	if err != nil {
 		return err
