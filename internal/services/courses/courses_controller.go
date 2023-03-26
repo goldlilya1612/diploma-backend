@@ -26,6 +26,10 @@ func NewCoursesController(DB *gorm.DB) *CoursesController {
 	}
 }
 
+func checkCourseAccess() {
+	
+}
+
 func deleteImage(path string) {
 
 	if _, err := os.Stat(path); errors.Is(err, os.ErrNotExist) {
@@ -242,16 +246,6 @@ func (cc *CoursesController) UpdateCourse(ctx *gin.Context) {
 		ctx.JSON(http.StatusForbidden, models.HTTPResponse{
 			Status:     serv.ErrResponseStatus,
 			StatusCode: http.StatusForbidden,
-			Message:    message,
-		})
-		return
-	}
-
-	if currentUser.Name != course.CreatorName {
-		message := "The creator's name does not match the current user's name"
-		ctx.JSON(http.StatusBadRequest, models.HTTPResponse{
-			Status:     serv.ErrResponseStatus,
-			StatusCode: http.StatusBadRequest,
 			Message:    message,
 		})
 		return

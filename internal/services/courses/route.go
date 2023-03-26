@@ -6,6 +6,12 @@ import (
 	"net/http"
 )
 
+const (
+	coursesRout  = "/course"
+	chaptersRout = "/chapter"
+	articlesRout = "/article"
+)
+
 type CoursesRouteController struct {
 	CoursesRouteController *CoursesController
 	authController         *auth.AuthController
@@ -20,13 +26,33 @@ func NewCoursesRouteController(coursesController *CoursesController, authControl
 
 func (crc *CoursesRouteController) CoursesRoute(rg *gin.RouterGroup) {
 
-	router := rg.Group("/courses")
+	coursesRouter := rg.Group(coursesRout)
 
-	router.POST("/create", crc.authController.DeserializeUser(), crc.authController.CheckAccessRole(auth.LecturerRole), crc.CoursesRouteController.CreateCourse)
-	router.GET("/get-course", crc.authController.DeserializeUser(), crc.CoursesRouteController.GetCourse)
-	router.GET("/get-courses", crc.authController.DeserializeUser(), crc.CoursesRouteController.GetCourses)
-	router.PATCH("/update", crc.authController.DeserializeUser(), crc.authController.CheckAccessRole(auth.LecturerRole), crc.CoursesRouteController.UpdateCourse)
-	router.DELETE("/delete", crc.authController.DeserializeUser(), crc.authController.CheckAccessRole(auth.LecturerRole), crc.CoursesRouteController.DeleteCourse)
+	coursesRouter.POST("/create", crc.authController.DeserializeUser(), crc.authController.CheckAccessRole(auth.LecturerRole), crc.CoursesRouteController.CreateCourse)
+	coursesRouter.GET("/get-course", crc.authController.DeserializeUser(), crc.CoursesRouteController.GetCourse)
+	coursesRouter.GET("/get-courses", crc.authController.DeserializeUser(), crc.CoursesRouteController.GetCourses)
+	coursesRouter.PATCH("/update", crc.authController.DeserializeUser(), crc.authController.CheckAccessRole(auth.LecturerRole), crc.CoursesRouteController.UpdateCourse)
+	coursesRouter.DELETE("/delete", crc.authController.DeserializeUser(), crc.authController.CheckAccessRole(auth.LecturerRole), crc.CoursesRouteController.DeleteCourse)
+	coursesRouter.StaticFS("/images", http.Dir("resources/images"))
 
-	router.StaticFS("/images", http.Dir("resources/images"))
+	crc.chaptersRoute(coursesRouter)
+	crc.articlesRoute(coursesRouter)
+}
+
+func (crc *CoursesRouteController) chaptersRoute(rg *gin.RouterGroup) {
+
+	chaptersRouter := rg.Group(chaptersRout)
+
+	chaptersRouter.POST("/create", crc.authController.DeserializeUser(), crc.authController.CheckAccessRole(auth.LecturerRole), crc.CoursesRouteController.CreateChapter)
+	chaptersRouter.PATCH("/update", crc.authController.DeserializeUser(), crc.authController.CheckAccessRole(auth.LecturerRole), crc.CoursesRouteController.UpdateChapter)
+	_ = chaptersRouter
+}
+
+func (crc *CoursesRouteController) articlesRoute(rg *gin.RouterGroup) {
+
+	articlesRouter := rg.Group(articlesRout)
+
+	//chaptersRouter.POST("/create", crc.authController.DeserializeUser(), crc.authController.CheckAccessRole(auth.LecturerRole), crc.CoursesRouteController.CreateCourse)
+
+	_ = articlesRouter
 }
