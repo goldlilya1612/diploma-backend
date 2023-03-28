@@ -1,20 +1,36 @@
 package models
 
-import "time"
+import (
+	"time"
+)
 
 type Article struct {
-	ID        int    `gorm:"primaryKey;uniqueIndex"`
-	Name      string `gorm:"type:varchar(255);not null"`
-	ChapterID int    `gorm:"type:integer;not null"`
+	ID        int    `json:"id" gorm:"primaryKey;uniqueIndex"`
+	Name      string `json:"name" gorm:"type:varchar(255);not null"`
+	ChapterID int    `json:"chapterID" gorm:"type:integer;not null"`
+	Content   string `json:"-" gorm:"type:text;not null"`
 
-	Chapter Chapter `gorm:"foreignKey:ChapterID"`
+	CreatedAt time.Time `json:"createAt"`
+	UpdatedAt time.Time `json:"updatedAt"`
+
+	Chapter Chapter `json:"-"`
+}
+
+type CreateArticle struct {
+	Name      string `json:"name" binding:"required"`
+	ChapterID int    `json:"chapterID" binding:"required"`
+}
+
+type UpdateArticle struct {
+	ID   int    `json:"id" binding:"required"`
+	Name string `json:"name" binding:"required"`
 }
 
 type ArticleResponse struct {
-	ID        int    `json:"id" binding:"required"`
-	Name      string `json:"name" binding:"required"`
-	ChapterID int    `json:"courseID" binding:"required"`
-	Route     string `json:"route" binding:"required"`
+	ID        int    `json:"id"`
+	Name      string `json:"name"`
+	ChapterID int    `json:"courseID"`
+	Route     string `json:"route"`
 
 	CreatedAt time.Time `json:"createdAt"`
 	UpdatedAt time.Time `json:"updatedAt"`

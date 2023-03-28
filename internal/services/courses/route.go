@@ -12,19 +12,19 @@ const (
 	articlesRout = "/article"
 )
 
-type CoursesRouteController struct {
-	CoursesRouteController *CoursesController
+type CourseRouteController struct {
+	CoursesRouteController *CourseController
 	authController         *auth.AuthController
 }
 
-func NewCoursesRouteController(coursesController *CoursesController, authController *auth.AuthController) CoursesRouteController {
-	return CoursesRouteController{
+func NewCourseRouteController(coursesController *CourseController, authController *auth.AuthController) CourseRouteController {
+	return CourseRouteController{
 		CoursesRouteController: coursesController,
 		authController:         authController,
 	}
 }
 
-func (crc *CoursesRouteController) CoursesRoute(rg *gin.RouterGroup) {
+func (crc *CourseRouteController) CourseRoute(rg *gin.RouterGroup) {
 
 	coursesRouter := rg.Group(coursesRout)
 
@@ -36,23 +36,22 @@ func (crc *CoursesRouteController) CoursesRoute(rg *gin.RouterGroup) {
 	coursesRouter.StaticFS("/images", http.Dir("resources/images"))
 
 	crc.chaptersRoute(coursesRouter)
-	crc.articlesRoute(coursesRouter)
 }
 
-func (crc *CoursesRouteController) chaptersRoute(rg *gin.RouterGroup) {
+func (crc *CourseRouteController) chaptersRoute(rg *gin.RouterGroup) {
 
 	chaptersRouter := rg.Group(chaptersRout)
 
 	chaptersRouter.POST("/create", crc.authController.DeserializeUser(), crc.authController.CheckAccessRole(auth.LecturerRole), crc.CoursesRouteController.CreateChapter)
 	chaptersRouter.PATCH("/update", crc.authController.DeserializeUser(), crc.authController.CheckAccessRole(auth.LecturerRole), crc.CoursesRouteController.UpdateChapter)
-	_ = chaptersRouter
+
+	crc.articlesRoute(chaptersRouter)
 }
 
-func (crc *CoursesRouteController) articlesRoute(rg *gin.RouterGroup) {
+func (crc *CourseRouteController) articlesRoute(rg *gin.RouterGroup) {
 
 	articlesRouter := rg.Group(articlesRout)
 
-	//chaptersRouter.POST("/create", crc.authController.DeserializeUser(), crc.authController.CheckAccessRole(auth.LecturerRole), crc.CoursesRouteController.CreateCourse)
-
-	_ = articlesRouter
+	articlesRouter.POST("/create", crc.authController.DeserializeUser(), crc.authController.CheckAccessRole(auth.LecturerRole), crc.CoursesRouteController.CreateArticle)
+	articlesRouter.PATCH("/update", crc.authController.DeserializeUser(), crc.authController.CheckAccessRole(auth.LecturerRole), crc.CoursesRouteController.UpdateArticle)
 }

@@ -1,6 +1,6 @@
 package models
 
-type Images struct {
+type Image struct {
 	ID   int    `gorm:"primaryKey;uniqueIndex"`
 	Name string `gorm:"type:varchar(255);not null"`
 	Path string `gorm:"type:varchar(255);not null"`

@@ -3,14 +3,15 @@ package models
 import "time"
 
 type Chapter struct {
-	ID       int    `gorm:"primaryKey;uniqueIndex"`
-	Name     string `gorm:"type:varchar(255);not null"`
-	CourseID int    `gorm:"type:integer;not null"`
+	ID       int    `json:"id" gorm:"primaryKey;uniqueIndex"`
+	Name     string `json:"name" gorm:"type:varchar(255);not null"`
+	CourseID int    `json:"courseID" gorm:"type:integer;not null"`
 
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	CreatedAt time.Time `json:"createAt"`
+	UpdatedAt time.Time `json:"updatedAt"`
 
-	Course Course `gorm:"foreignKey:CourseID"`
+	Course   Course    `json:"-"`
+	Articles []Article `json:"articles"`
 }
 
 type CreateChapter struct {
@@ -24,10 +25,10 @@ type UpdateChapter struct {
 }
 
 type ChapterResponse struct {
-	ID       int    `json:"id" binding:"required"`
-	Name     string `json:"name" binding:"required"`
-	CourseID int    `json:"courseID" binding:"required"`
-	Route    string `json:"route" binding:"required"`
+	ID       int    `json:"id"`
+	Name     string `json:"name"`
+	CourseID int    `json:"courseID"`
+	Route    string `json:"route"`
 
 	CreatedAt time.Time `json:"createdAt"`
 	UpdatedAt time.Time `json:"updatedAt"`

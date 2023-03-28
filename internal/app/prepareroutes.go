@@ -19,8 +19,8 @@ func PrepareUsersRoute(db *gorm.DB, authController *auth.AuthController) user.Us
 	return user.NewUsersRouteController(usersController, authController)
 }
 
-func PrepareCoursesRoute(db *gorm.DB, authController *auth.AuthController) courses.CoursesRouteController {
+func PrepareCoursesRoute(db *gorm.DB, authController *auth.AuthController) courses.CourseRouteController {
 
 	coursesController := courses.NewCoursesController(db)
-	return courses.NewCoursesRouteController(coursesController, authController)
+	return courses.NewCourseRouteController(coursesController, authController)
 }

@@ -46,7 +46,7 @@ func main() {
 	mainGroup := gs.Server.Group("/api")
 	authRouter.AuthRoute(mainGroup)
 	usersRouter.UsersRoute(mainGroup)
-	coursesRouter.CoursesRoute(mainGroup)
+	coursesRouter.CourseRoute(mainGroup)
 
 	app.StartGinServer(gs)
 }

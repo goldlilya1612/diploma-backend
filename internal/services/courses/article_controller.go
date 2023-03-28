@@ -10,8 +10,8 @@ import (
 	"time"
 )
 
-func (cc *CourseController) CreateChapter(ctx *gin.Context) {
-	var payload *models.CreateChapter
+func (cc *CourseController) CreateArticle(ctx *gin.Context) {
+	var payload *models.CreateArticle
 
 	err := ctx.ShouldBindJSON(&payload)
 	if err != nil {
@@ -24,8 +24,8 @@ func (cc *CourseController) CreateChapter(ctx *gin.Context) {
 	}
 
 	var creatorID string
-	res := cc.DB.Table("courses").Select("creator_id").Where("id = ?", payload.CourseID).
-		Scan(&creatorID)
+	res := cc.DB.Table("courses").Joins("JOIN Chapters ON Chapters.course_id = Courses.id").
+		Select("creator_id").Where("Chapters.id = ?", payload.ChapterID).Scan(&creatorID)
 	if res.Error != nil {
 		ctx.JSON(http.StatusBadRequest, models.HTTPResponse{
 			Status:     serv.ErrResponseStatus,
@@ -47,15 +47,15 @@ func (cc *CourseController) CreateChapter(ctx *gin.Context) {
 	}
 
 	now := time.Time{}
-	newChapter := models.Chapter{
-		Name:     payload.Name,
-		CourseID: payload.CourseID,
+	newArticle := models.Article{
+		Name:      payload.Name,
+		ChapterID: payload.ChapterID,
 
 		CreatedAt: now,
 		UpdatedAt: now,
 	}
 
-	res = cc.DB.Create(&newChapter)
+	res = cc.DB.Create(&newArticle)
 	if res.Error != nil {
 		ctx.JSON(http.StatusConflict, models.HTTPResponse{
 			Status:     serv.ErrResponseStatus,
@@ -65,25 +65,25 @@ func (cc *CourseController) CreateChapter(ctx *gin.Context) {
 		return
 	}
 
-	chapterResponse := &models.ChapterResponse{
-		ID:       newChapter.ID,
-		Name:     newChapter.Name,
-		CourseID: newChapter.CourseID,
-		Route:    utils.Latinizer(payload.Name),
+	articleResponse := &models.ArticleResponse{
+		ID:        newArticle.ID,
+		Name:      newArticle.Name,
+		ChapterID: newArticle.ChapterID,
+		Route:     utils.Latinizer(payload.Name),
 
-		CreatedAt: newChapter.CreatedAt,
-		UpdatedAt: newChapter.UpdatedAt,
+		CreatedAt: newArticle.CreatedAt,
+		UpdatedAt: newArticle.UpdatedAt,
 	}
 
 	ctx.JSON(http.StatusCreated, models.HTTPResponse{
 		Status:     serv.SuccessResponseStatus,
 		StatusCode: http.StatusCreated,
-		Data:       map[string]interface{}{"createdChapter": chapterResponse},
+		Data:       map[string]interface{}{"createdArticle": articleResponse},
 	})
 }
 
-func (cc *CourseController) UpdateChapter(ctx *gin.Context) {
-	var payload *models.UpdateChapter
+func (cc *CourseController) UpdateArticle(ctx *gin.Context) {
+	var payload *models.UpdateArticle
 
 	err := ctx.ShouldBindJSON(&payload)
 	if err != nil {
@@ -97,8 +97,10 @@ func (cc *CourseController) UpdateChapter(ctx *gin.Context) {
 
 	var creatorID string
 	res := cc.DB.Table("courses").
-		Joins("JOIN Chapters ON Chapters.course_id = Courses.id").
-		Select("creator_id").Where("Chapters.id = ?", payload.ID).
+		InnerJoins("JOIN Chapters ON Chapters.course_id = Courses.id").
+		InnerJoins("JOIN Articles ON Articles.chapter_id = Chapters.id").
+		Select("creator_id").
+		Where("Articles.id = ?", payload.ID).
 		Scan(&creatorID)
 	if res.Error != nil {
 		ctx.JSON(http.StatusBadRequest, models.HTTPResponse{
@@ -120,10 +122,10 @@ func (cc *CourseController) UpdateChapter(ctx *gin.Context) {
 		return
 	}
 
-	updatedChapter := models.Chapter{
+	updatedArticle := models.Article{
 		ID: payload.ID,
 	}
-	res = cc.DB.Model(&updatedChapter).Clauses(clause.Returning{}).Updates(models.Chapter{
+	res = cc.DB.Model(&updatedArticle).Clauses(clause.Returning{}).Updates(models.Article{
 		Name: payload.Name,
 	})
 	if res.Error != nil {
@@ -135,14 +137,14 @@ func (cc *CourseController) UpdateChapter(ctx *gin.Context) {
 		return
 	}
 
-	chapterResponse := &models.ChapterResponse{
-		ID:       updatedChapter.ID,
-		Name:     updatedChapter.Name,
-		CourseID: updatedChapter.CourseID,
-		Route:    utils.Latinizer(payload.Name),
+	chapterResponse := &models.ArticleResponse{
+		ID:        updatedArticle.ID,
+		Name:      updatedArticle.Name,
+		ChapterID: updatedArticle.ChapterID,
+		Route:     utils.Latinizer(payload.Name),
 
-		CreatedAt: updatedChapter.CreatedAt,
-		UpdatedAt: updatedChapter.UpdatedAt,
+		CreatedAt: updatedArticle.CreatedAt,
+		UpdatedAt: updatedArticle.UpdatedAt,
 	}
 
 	ctx.JSON(http.StatusOK, models.HTTPResponse{
@@ -152,6 +154,6 @@ func (cc *CourseController) UpdateChapter(ctx *gin.Context) {
 	})
 }
 
-func (cc *CourseController) DeleteChapters(ctx *gin.Context) {
-
-}
+//func (cc *CourseController) DeleteChapters(ctx *gin.Context) {
+//
+//}

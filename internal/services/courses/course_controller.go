@@ -16,18 +16,18 @@ import (
 	"time"
 )
 
-type CoursesController struct {
+type CourseController struct {
 	DB *gorm.DB
 }
 
-func NewCoursesController(DB *gorm.DB) *CoursesController {
-	return &CoursesController{
+func NewCoursesController(DB *gorm.DB) *CourseController {
+	return &CourseController{
 		DB: DB,
 	}
 }
 
 func checkCourseAccess() {
-	
+
 }
 
 func deleteImage(path string) {
@@ -43,7 +43,7 @@ func deleteImage(path string) {
 	}
 }
 
-func (cc *CoursesController) CreateCourse(ctx *gin.Context) {
+func (cc *CourseController) CreateCourse(ctx *gin.Context) {
 	var payload *models.CreateCourse
 
 	err := ctx.ShouldBind(&payload)
@@ -56,7 +56,7 @@ func (cc *CoursesController) CreateCourse(ctx *gin.Context) {
 		return
 	}
 
-	image := models.Images{}
+	image := models.Image{}
 	imageName, imagePath, imageURL, err := media.ImageUpload(ctx)
 	if err != nil && !errors.Is(err, http.ErrMissingFile) {
 		ctx.JSON(http.StatusInternalServerError, models.HTTPResponse{
@@ -76,12 +76,11 @@ func (cc *CoursesController) CreateCourse(ctx *gin.Context) {
 	now := time.Time{}
 	newCourse := models.Course{
 		Name:        payload.Name,
-		CreatorName: currentUser.Name,
 		CreatorID:   currentUser.ID,
 		Category:    payload.Category,
 		Description: payload.Description,
 
-		Images: image,
+		Image: image,
 
 		CreatedAt: now,
 		UpdatedAt: now,
@@ -101,9 +100,8 @@ func (cc *CoursesController) CreateCourse(ctx *gin.Context) {
 	courseResponse := &models.CourseResponse{
 		ID:          newCourse.ID,
 		Name:        newCourse.Name,
-		CreatorID:   currentUser.ID,
 		CreatorName: currentUser.Name,
-		Image:       newCourse.Images,
+		Image:       newCourse.Image,
 		Category:    newCourse.Category,
 		Description: newCourse.Description,
 		Route:       utils.Latinizer(payload.Name),
@@ -119,16 +117,24 @@ func (cc *CoursesController) CreateCourse(ctx *gin.Context) {
 	})
 }
 
-func (cc *CoursesController) GetCourse(ctx *gin.Context) {
+func (cc *CourseController) GetCourse(ctx *gin.Context) {
 
 	var coursesResponse []models.CourseResponse
 
 	params := ctx.Request.URL.Query()
 	ids := params["id"]
 
+	type Result struct {
+		course  models.Course
+		chapter models.ChapterResponse
+	}
+
 	for _, id := range ids {
+
 		course := models.Course{}
-		res := cc.DB.InnerJoins("Images").First(&course, "Courses.id = ?", id)
+		res := cc.DB.Preload("Chapters.Articles").
+			Joins("Lecturer").Joins("Image").
+			First(&course, "Courses.id = ?", id)
 		if res.Error != nil && strings.Contains(res.Error.Error(), "record not found") {
 			message := fmt.Sprintf("Course with id=%s not found", id)
 			ctx.JSON(http.StatusBadRequest, models.HTTPResponse{
@@ -149,12 +155,13 @@ func (cc *CoursesController) GetCourse(ctx *gin.Context) {
 		courseResponse := models.CourseResponse{
 			ID:          course.ID,
 			Name:        course.Name,
-			CreatorID:   course.CreatorID,
-			CreatorName: course.CreatorName,
-			Image:       course.Images,
+			CreatorName: course.Lecturer.Name,
+			Image:       course.Image,
 			Category:    course.Category,
 			Description: course.Description,
 			Route:       utils.Latinizer(course.Name),
+
+			Chapters: course.Chapters,
 
 			CreatedAt: course.CreatedAt,
 			UpdatedAt: course.UpdatedAt,
@@ -169,12 +176,12 @@ func (cc *CoursesController) GetCourse(ctx *gin.Context) {
 	})
 }
 
-func (cc *CoursesController) GetCourses(ctx *gin.Context) {
+func (cc *CourseController) GetCourses(ctx *gin.Context) {
 
 	var coursesResponse []models.CourseResponse
 
 	var courses []models.Course
-	res := cc.DB.InnerJoins("Images").Find(&courses)
+	res := cc.DB.Joins("Lecturer").Joins("Image").Find(&courses)
 	if res.Error != nil {
 		ctx.JSON(http.StatusBadRequest, models.HTTPResponse{
 			Status:     serv.ErrResponseStatus,
@@ -188,9 +195,8 @@ func (cc *CoursesController) GetCourses(ctx *gin.Context) {
 		courseResponse := models.CourseResponse{
 			ID:          c.ID,
 			Name:        c.Name,
-			CreatorID:   c.CreatorID,
-			CreatorName: c.CreatorName,
-			Image:       c.Images,
+			CreatorName: c.Lecturer.Name,
+			Image:       c.Image,
 			Category:    c.Category,
 			Description: c.Description,
 			Route:       utils.Latinizer(c.Name),
@@ -208,7 +214,7 @@ func (cc *CoursesController) GetCourses(ctx *gin.Context) {
 	})
 }
 
-func (cc *CoursesController) UpdateCourse(ctx *gin.Context) {
+func (cc *CourseController) UpdateCourse(ctx *gin.Context) {
 	var payload *models.UpdateCourse
 
 	err := ctx.ShouldBind(&payload)
@@ -222,7 +228,8 @@ func (cc *CoursesController) UpdateCourse(ctx *gin.Context) {
 	}
 
 	course := models.Course{}
-	res := cc.DB.InnerJoins("Images").First(&course, "Courses.id = ?", payload.ID)
+	res := cc.DB.Joins("Image").Joins("Lecturer").
+		First(&course, "Courses.id = ?", payload.ID)
 	if res.Error != nil && strings.Contains(res.Error.Error(), "record not found") {
 		message := fmt.Sprintf("Course with id=%s not found", payload.ID)
 		ctx.JSON(http.StatusBadRequest, models.HTTPResponse{
@@ -239,6 +246,8 @@ func (cc *CoursesController) UpdateCourse(ctx *gin.Context) {
 		})
 		return
 	}
+	creatorName := course.Lecturer.Name
+	course.Lecturer = models.Lecturer{}
 
 	currentUser := ctx.MustGet("currentUser").(models.User)
 	if currentUser.ID != course.CreatorID {
@@ -251,6 +260,7 @@ func (cc *CoursesController) UpdateCourse(ctx *gin.Context) {
 		return
 	}
 
+	var oldImagePath string
 	imageName, imagePath, imageURL, err := media.ImageUpload(ctx)
 	if err != nil && !errors.Is(err, http.ErrMissingFile) {
 		ctx.JSON(http.StatusInternalServerError, models.HTTPResponse{
@@ -260,8 +270,9 @@ func (cc *CoursesController) UpdateCourse(ctx *gin.Context) {
 		})
 		return
 	} else if err == nil {
-		err = cc.DB.Model(&course).Association("Images").Replace(&course.Image, &models.Images{
-			ID:   course.Image,
+		oldImagePath = course.Image.Path
+		err = cc.DB.Model(&course).Association("Image").Replace(&course.Image, &models.Image{
+			ID:   course.ImageID,
 			Name: imageName,
 			Path: imagePath,
 			URL:  imageURL,
@@ -291,13 +302,13 @@ func (cc *CoursesController) UpdateCourse(ctx *gin.Context) {
 		})
 		return
 	}
+	deleteImage(oldImagePath)
 
 	courseResponse := &models.CourseResponse{
 		ID:          course.ID,
 		Name:        course.Name,
-		CreatorID:   course.CreatorID,
-		CreatorName: course.CreatorName,
-		Image:       course.Images,
+		CreatorName: creatorName,
+		Image:       course.Image,
 		Category:    course.Category,
 		Description: course.Description,
 		Route:       utils.Latinizer(payload.Name),
@@ -312,7 +323,7 @@ func (cc *CoursesController) UpdateCourse(ctx *gin.Context) {
 	})
 }
 
-func (cc *CoursesController) DeleteCourse(ctx *gin.Context) {
+func (cc *CourseController) DeleteCourse(ctx *gin.Context) {
 
 	var coursesResponse []models.CourseResponse
 
@@ -322,7 +333,7 @@ func (cc *CoursesController) DeleteCourse(ctx *gin.Context) {
 	for _, id := range ids {
 
 		course := models.Course{}
-		res := cc.DB.InnerJoins("Images").First(&course, "Courses.id = ?", id)
+		res := cc.DB.Joins("Image").First(&course, "Courses.id = ?", id)
 		if res.Error != nil && strings.Contains(res.Error.Error(), "record not found") {
 			message := fmt.Sprintf("Course with id=%s not found", id)
 			ctx.JSON(http.StatusBadRequest, models.HTTPResponse{
@@ -351,7 +362,7 @@ func (cc *CoursesController) DeleteCourse(ctx *gin.Context) {
 			return
 		}
 
-		//err := cc.DB.Model(&course).Association("Images").Error
+		//err := cc.DB.Model(&course).Association("Image").Error
 		//if err != nil {
 		//	ctx.JSON(http.StatusConflict, models.HTTPResponse{
 		//		Status:     serv.ErrResponseStatus,
@@ -370,14 +381,12 @@ func (cc *CoursesController) DeleteCourse(ctx *gin.Context) {
 			})
 			return
 		}
-		deleteImage(course.Images.Path)
+		deleteImage(course.Image.Path)
 
 		courseResponse := models.CourseResponse{
 			ID:          course.ID,
 			Name:        course.Name,
-			CreatorID:   course.CreatorID,
-			CreatorName: course.CreatorName,
-			Image:       course.Images,
+			Image:       course.Image,
 			Category:    course.Category,
 			Description: course.Description,
 			Route:       utils.Latinizer(course.Name),

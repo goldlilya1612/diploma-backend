@@ -51,7 +51,7 @@ func (p *PostgreSQL) InitDB() error {
 		&models.Student{},
 		&models.Lecturer{},
 		&models.Course{},
-		&models.Images{},
+		&models.Image{},
 		&models.Chapter{},
 		&models.Article{},
 	)

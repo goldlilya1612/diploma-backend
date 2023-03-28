@@ -25,7 +25,7 @@ func ImageUpload(ctx *gin.Context) (imageName string, imagePath string, url stri
 	originalImageName := strings.TrimSuffix(filepath.Base(header.Filename), filepath.Ext(header.Filename))
 	now := time.Now()
 	imageName = strings.ReplaceAll(strings.ToLower(originalImageName), " ", "-") + "-" + fmt.Sprintf("%v", now.Unix()) + fileExt
-	url = "http://localhost:8080/api/courses/images/" + imageName //  TODO: подставлять урл из настроек сервера
+	url = "http://localhost:8080/api/course/images/" + imageName //  TODO: подставлять урл из настроек сервера
 
 	if _, err := os.Stat(imagesDir); os.IsNotExist(err) {
 		err := os.MkdirAll(imagesDir, os.ModePerm)
