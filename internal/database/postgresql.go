@@ -18,7 +18,7 @@ func NewPostgreSQL(config *Config) *PostgreSQL {
 	}
 }
 
-func (p *PostgreSQL) Connect() error {
+func (p *PostgreSQL) connect() error {
 
 	dsn := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s sslmode=%s",
 		p.config.Host,
@@ -39,7 +39,7 @@ func (p *PostgreSQL) Connect() error {
 	return nil
 }
 
-func (p *PostgreSQL) InitDB() error {
+func (p *PostgreSQL) initDB() error {
 
 	tx := p.DB.Exec("CREATE EXTENSION IF NOT EXISTS \"uuid-ossp\"")
 	if tx.Error != nil {
@@ -55,6 +55,20 @@ func (p *PostgreSQL) InitDB() error {
 		&models.Chapter{},
 		&models.Article{},
 	)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (p *PostgreSQL) StartPostgreSQL() error {
+	err := p.connect()
+	if err != nil {
+		return err
+	}
+
+	err = p.initDB()
 	if err != nil {
 		return err
 	}

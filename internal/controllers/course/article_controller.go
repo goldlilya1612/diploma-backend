@@ -1,7 +1,8 @@
-package courses
+package course
 
 import (
 	"github.com/gin-gonic/gin"
+	"github.com/goldlilya1612/diploma-backend/internal/controllers/auth"
 	"github.com/goldlilya1612/diploma-backend/internal/models"
 	serv "github.com/goldlilya1612/diploma-backend/internal/transport/http"
 	"github.com/goldlilya1612/diploma-backend/internal/utils"
@@ -10,7 +11,15 @@ import (
 	"time"
 )
 
-func (cc *CourseController) CreateArticle(ctx *gin.Context) {
+func (c *Controller) articlesRoute(rg *gin.RouterGroup) {
+
+	articlesRouter := rg.Group(articlesRout)
+
+	articlesRouter.POST("/create", c.authController.DeserializeUser(), c.authController.CheckAccessRole(auth.LecturerRole), c.CreateArticle)
+	articlesRouter.PATCH("/update", c.authController.DeserializeUser(), c.authController.CheckAccessRole(auth.LecturerRole), c.UpdateArticle)
+}
+
+func (c *Controller) CreateArticle(ctx *gin.Context) {
 	var payload *models.CreateArticle
 
 	err := ctx.ShouldBindJSON(&payload)
@@ -24,7 +33,7 @@ func (cc *CourseController) CreateArticle(ctx *gin.Context) {
 	}
 
 	var creatorID string
-	res := cc.DB.Table("courses").Joins("JOIN Chapters ON Chapters.course_id = Courses.id").
+	res := c.DB.Table("course").Joins("JOIN Chapters ON Chapters.course_id = Courses.id").
 		Select("creator_id").Where("Chapters.id = ?", payload.ChapterID).Scan(&creatorID)
 	if res.Error != nil {
 		ctx.JSON(http.StatusBadRequest, models.HTTPResponse{
@@ -55,7 +64,7 @@ func (cc *CourseController) CreateArticle(ctx *gin.Context) {
 		UpdatedAt: now,
 	}
 
-	res = cc.DB.Create(&newArticle)
+	res = c.DB.Create(&newArticle)
 	if res.Error != nil {
 		ctx.JSON(http.StatusConflict, models.HTTPResponse{
 			Status:     serv.ErrResponseStatus,
@@ -82,7 +91,7 @@ func (cc *CourseController) CreateArticle(ctx *gin.Context) {
 	})
 }
 
-func (cc *CourseController) UpdateArticle(ctx *gin.Context) {
+func (c *Controller) UpdateArticle(ctx *gin.Context) {
 	var payload *models.UpdateArticle
 
 	err := ctx.ShouldBindJSON(&payload)
@@ -96,7 +105,7 @@ func (cc *CourseController) UpdateArticle(ctx *gin.Context) {
 	}
 
 	var creatorID string
-	res := cc.DB.Table("courses").
+	res := c.DB.Table("course").
 		InnerJoins("JOIN Chapters ON Chapters.course_id = Courses.id").
 		InnerJoins("JOIN Articles ON Articles.chapter_id = Chapters.id").
 		Select("creator_id").
@@ -125,7 +134,7 @@ func (cc *CourseController) UpdateArticle(ctx *gin.Context) {
 	updatedArticle := models.Article{
 		ID: payload.ID,
 	}
-	res = cc.DB.Model(&updatedArticle).Clauses(clause.Returning{}).Updates(models.Article{
+	res = c.DB.Model(&updatedArticle).Clauses(clause.Returning{}).Updates(models.Article{
 		Name: payload.Name,
 	})
 	if res.Error != nil {
@@ -154,6 +163,6 @@ func (cc *CourseController) UpdateArticle(ctx *gin.Context) {
 	})
 }
 
-//func (cc *CourseController) DeleteChapters(ctx *gin.Context) {
-//
-//}
+func (c *Controller) DeleteArticles(ctx *gin.Context) {
+
+}

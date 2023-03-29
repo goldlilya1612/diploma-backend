@@ -1,49 +1,58 @@
-package courses
+package course
 
 import (
 	"errors"
 	"fmt"
 	"github.com/gin-gonic/gin"
+	"github.com/goldlilya1612/diploma-backend/internal/controllers/auth"
 	"github.com/goldlilya1612/diploma-backend/internal/models"
-	"github.com/goldlilya1612/diploma-backend/internal/services/media"
 	serv "github.com/goldlilya1612/diploma-backend/internal/transport/http"
 	"github.com/goldlilya1612/diploma-backend/internal/utils"
 	"gorm.io/gorm"
+	"io"
 	"log"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 )
 
-type CourseController struct {
-	DB *gorm.DB
+const (
+	coursesRout  = "/course"
+	chaptersRout = "/chapter"
+	articlesRout = "/article"
+
+	imagesDir = "./resources/images/"
+)
+
+type Controller struct {
+	DB             *gorm.DB
+	authController *auth.Controller
 }
 
-func NewCoursesController(DB *gorm.DB) *CourseController {
-	return &CourseController{
-		DB: DB,
+func NewController(DB *gorm.DB, authController *auth.Controller) *Controller {
+	return &Controller{
+		DB,
+		authController,
 	}
 }
 
-func checkCourseAccess() {
+func (c *Controller) Route(rg *gin.RouterGroup) {
 
+	coursesRouter := rg.Group(coursesRout)
+
+	coursesRouter.POST("/create", c.authController.DeserializeUser(), c.authController.CheckAccessRole(auth.LecturerRole), c.CreateCourse)
+	coursesRouter.GET("/get-course", c.authController.DeserializeUser(), c.GetCourse)
+	coursesRouter.GET("/get-courses", c.authController.DeserializeUser(), c.GetCourses)
+	coursesRouter.PATCH("/update", c.authController.DeserializeUser(), c.authController.CheckAccessRole(auth.LecturerRole), c.UpdateCourse)
+	coursesRouter.DELETE("/delete", c.authController.DeserializeUser(), c.authController.CheckAccessRole(auth.LecturerRole), c.DeleteCourse)
+	coursesRouter.StaticFS("/images", http.Dir("resources/images"))
+
+	c.chaptersRoute(coursesRouter)
 }
 
-func deleteImage(path string) {
-
-	if _, err := os.Stat(path); errors.Is(err, os.ErrNotExist) {
-		return
-	}
-
-	err := os.Remove(path)
-	if err != nil {
-		// TODO: интегрировать с логером Gin
-		log.Printf("[ERROR] File deletion error: %s", err.Error())
-	}
-}
-
-func (cc *CourseController) CreateCourse(ctx *gin.Context) {
+func (c *Controller) CreateCourse(ctx *gin.Context) {
 	var payload *models.CreateCourse
 
 	err := ctx.ShouldBind(&payload)
@@ -57,7 +66,7 @@ func (cc *CourseController) CreateCourse(ctx *gin.Context) {
 	}
 
 	image := models.Image{}
-	imageName, imagePath, imageURL, err := media.ImageUpload(ctx)
+	imageName, imagePath, imageURL, err := imageUpload(ctx)
 	if err != nil && !errors.Is(err, http.ErrMissingFile) {
 		ctx.JSON(http.StatusInternalServerError, models.HTTPResponse{
 			Status:     serv.ErrResponseStatus,
@@ -86,7 +95,7 @@ func (cc *CourseController) CreateCourse(ctx *gin.Context) {
 		UpdatedAt: now,
 	}
 
-	res := cc.DB.Create(&newCourse)
+	res := c.DB.Create(&newCourse)
 	if res.Error != nil {
 		deleteImage(imagePath)
 		ctx.JSON(http.StatusConflict, models.HTTPResponse{
@@ -117,7 +126,7 @@ func (cc *CourseController) CreateCourse(ctx *gin.Context) {
 	})
 }
 
-func (cc *CourseController) GetCourse(ctx *gin.Context) {
+func (c *Controller) GetCourse(ctx *gin.Context) {
 
 	var coursesResponse []models.CourseResponse
 
@@ -132,7 +141,7 @@ func (cc *CourseController) GetCourse(ctx *gin.Context) {
 	for _, id := range ids {
 
 		course := models.Course{}
-		res := cc.DB.Preload("Chapters.Articles").
+		res := c.DB.Preload("Chapters.Articles").
 			Joins("Lecturer").Joins("Image").
 			First(&course, "Courses.id = ?", id)
 		if res.Error != nil && strings.Contains(res.Error.Error(), "record not found") {
@@ -172,16 +181,16 @@ func (cc *CourseController) GetCourse(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, models.HTTPResponse{
 		Status:     serv.SuccessResponseStatus,
 		StatusCode: http.StatusOK,
-		Data:       map[string]interface{}{"courses": coursesResponse},
+		Data:       map[string]interface{}{"course": coursesResponse},
 	})
 }
 
-func (cc *CourseController) GetCourses(ctx *gin.Context) {
+func (c *Controller) GetCourses(ctx *gin.Context) {
 
 	var coursesResponse []models.CourseResponse
 
 	var courses []models.Course
-	res := cc.DB.Joins("Lecturer").Joins("Image").Find(&courses)
+	res := c.DB.Joins("Lecturer").Joins("Image").Find(&courses)
 	if res.Error != nil {
 		ctx.JSON(http.StatusBadRequest, models.HTTPResponse{
 			Status:     serv.ErrResponseStatus,
@@ -210,11 +219,11 @@ func (cc *CourseController) GetCourses(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, models.HTTPResponse{
 		Status:     serv.SuccessResponseStatus,
 		StatusCode: http.StatusOK,
-		Data:       map[string]interface{}{"courses": coursesResponse},
+		Data:       map[string]interface{}{"course": coursesResponse},
 	})
 }
 
-func (cc *CourseController) UpdateCourse(ctx *gin.Context) {
+func (c *Controller) UpdateCourse(ctx *gin.Context) {
 	var payload *models.UpdateCourse
 
 	err := ctx.ShouldBind(&payload)
@@ -228,7 +237,7 @@ func (cc *CourseController) UpdateCourse(ctx *gin.Context) {
 	}
 
 	course := models.Course{}
-	res := cc.DB.Joins("Image").Joins("Lecturer").
+	res := c.DB.Joins("Image").Joins("Lecturer").
 		First(&course, "Courses.id = ?", payload.ID)
 	if res.Error != nil && strings.Contains(res.Error.Error(), "record not found") {
 		message := fmt.Sprintf("Course with id=%s not found", payload.ID)
@@ -261,7 +270,7 @@ func (cc *CourseController) UpdateCourse(ctx *gin.Context) {
 	}
 
 	var oldImagePath string
-	imageName, imagePath, imageURL, err := media.ImageUpload(ctx)
+	imageName, imagePath, imageURL, err := imageUpload(ctx)
 	if err != nil && !errors.Is(err, http.ErrMissingFile) {
 		ctx.JSON(http.StatusInternalServerError, models.HTTPResponse{
 			Status:     serv.ErrResponseStatus,
@@ -271,7 +280,7 @@ func (cc *CourseController) UpdateCourse(ctx *gin.Context) {
 		return
 	} else if err == nil {
 		oldImagePath = course.Image.Path
-		err = cc.DB.Model(&course).Association("Image").Replace(&course.Image, &models.Image{
+		err = c.DB.Model(&course).Association("Image").Replace(&course.Image, &models.Image{
 			ID:   course.ImageID,
 			Name: imageName,
 			Path: imagePath,
@@ -288,7 +297,7 @@ func (cc *CourseController) UpdateCourse(ctx *gin.Context) {
 		}
 	}
 
-	res = cc.DB.Model(&course).Session(&gorm.Session{FullSaveAssociations: true}).Updates(models.Course{
+	res = c.DB.Model(&course).Session(&gorm.Session{FullSaveAssociations: true}).Updates(models.Course{
 		Name:        payload.Name,
 		Category:    payload.Category,
 		Description: payload.Description,
@@ -323,7 +332,7 @@ func (cc *CourseController) UpdateCourse(ctx *gin.Context) {
 	})
 }
 
-func (cc *CourseController) DeleteCourse(ctx *gin.Context) {
+func (c *Controller) DeleteCourse(ctx *gin.Context) {
 
 	var coursesResponse []models.CourseResponse
 
@@ -333,7 +342,7 @@ func (cc *CourseController) DeleteCourse(ctx *gin.Context) {
 	for _, id := range ids {
 
 		course := models.Course{}
-		res := cc.DB.Joins("Image").First(&course, "Courses.id = ?", id)
+		res := c.DB.Joins("Image").First(&course, "Courses.id = ?", id)
 		if res.Error != nil && strings.Contains(res.Error.Error(), "record not found") {
 			message := fmt.Sprintf("Course with id=%s not found", id)
 			ctx.JSON(http.StatusBadRequest, models.HTTPResponse{
@@ -372,7 +381,7 @@ func (cc *CourseController) DeleteCourse(ctx *gin.Context) {
 		//	return
 		//}
 
-		res = cc.DB.Joins("join images on images.id = courses.image").Where("images.id = ?", fmt.Sprint(course.Image)).Delete(&course)
+		res = c.DB.Joins("join images on images.id = course.image").Where("images.id = ?", fmt.Sprint(course.Image)).Delete(&course)
 		if res.Error != nil {
 			ctx.JSON(http.StatusBadRequest, models.HTTPResponse{
 				Status:     serv.ErrResponseStatus,
@@ -402,4 +411,59 @@ func (cc *CourseController) DeleteCourse(ctx *gin.Context) {
 		StatusCode: http.StatusOK,
 		Data:       map[string]interface{}{"deletedCourses": coursesResponse},
 	})
+}
+
+func imageUpload(ctx *gin.Context) (imageName string, imagePath string, url string, err error) {
+
+	file, header, err := ctx.Request.FormFile("image")
+	if err != nil {
+		return "", "", "", err
+	}
+
+	fileExt := filepath.Ext(header.Filename)
+	originalImageName := strings.TrimSuffix(filepath.Base(header.Filename), filepath.Ext(header.Filename))
+	now := time.Now()
+	imageName = strings.ReplaceAll(strings.ToLower(originalImageName), " ", "-") + "-" + fmt.Sprintf("%v", now.Unix()) + fileExt
+	url = "http://localhost:8080/api/course/images/" + imageName //  TODO: подставлять урл из настроек сервера
+
+	if _, err := os.Stat(imagesDir); os.IsNotExist(err) {
+		err := os.MkdirAll(imagesDir, os.ModePerm)
+		if err != nil {
+			return "", "", "", err
+		}
+	}
+
+	imagePath = imagesDir + imageName
+	out, err := os.Create(imagePath)
+	if err != nil {
+		return "", "", "", err
+	}
+	defer out.Close()
+	_, err = io.Copy(out, file)
+	if err != nil {
+		return "", "", "", err
+	}
+
+	return imageName, imagePath, url, nil
+}
+
+func deleteImage(path string) {
+
+	if _, err := os.Stat(path); errors.Is(err, os.ErrNotExist) {
+		return
+	}
+
+	err := os.Remove(path)
+	if err != nil {
+		// TODO: интегрировать с логером Gin
+		log.Printf("[ERROR] File deletion error: %s", err.Error())
+	}
+}
+
+func RemoteUpload(ctx *gin.Context) {
+
+}
+
+func checkCourseAccess() {
+
 }

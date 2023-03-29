@@ -19,19 +19,28 @@ const (
 	LecturerRole = "lecturer"
 )
 
-type AuthController struct {
+type Controller struct {
 	config *Config
 	DB     *gorm.DB
 }
 
-func NewAuthController(config *Config, DB *gorm.DB) *AuthController {
-	return &AuthController{
+func NewController(config *Config, DB *gorm.DB) *Controller {
+	return &Controller{
 		config: config,
 		DB:     DB,
 	}
 }
 
-func (ac *AuthController) SignUpUser(ctx *gin.Context) {
+func (c *Controller) Route(rg *gin.RouterGroup) {
+	router := rg.Group("/auth")
+
+	router.POST("/signup", c.SignUpUser)
+	router.POST("/signin", c.SignInUser)
+	router.POST("/refresh", c.RefreshAccessToken)
+	router.POST("/logout", c.DeserializeUser(), c.LogoutUser)
+}
+
+func (c *Controller) SignUpUser(ctx *gin.Context) {
 
 	var payload *models.SignUp
 
@@ -76,7 +85,7 @@ func (ac *AuthController) SignUpUser(ctx *gin.Context) {
 		UpdatedAt: now,
 	}
 
-	res := ac.DB.Create(&newUser)
+	res := c.DB.Create(&newUser)
 	if res.Error != nil && res.Error.(*pgconn.PgError).Code == pgerrcode.UniqueViolation {
 		message := "Email already used"
 		ctx.JSON(http.StatusConflict, models.HTTPResponse{
@@ -109,7 +118,7 @@ func (ac *AuthController) SignUpUser(ctx *gin.Context) {
 			return
 		}
 
-		res := ac.DB.Create(&models.Student{
+		res := c.DB.Create(&models.Student{
 			Name:  newUser.Name,
 			Group: group,
 			User:  newUser,
@@ -133,7 +142,7 @@ func (ac *AuthController) SignUpUser(ctx *gin.Context) {
 			return
 		}
 
-		res := ac.DB.Create(&models.Lecturer{
+		res := c.DB.Create(&models.Lecturer{
 			Name:   newUser.Name,
 			Groups: payload.Groups,
 			User:   newUser,
@@ -172,7 +181,7 @@ func (ac *AuthController) SignUpUser(ctx *gin.Context) {
 	})
 }
 
-func (ac *AuthController) SignInUser(ctx *gin.Context) {
+func (c *Controller) SignInUser(ctx *gin.Context) {
 
 	var payload *models.SignIn
 
@@ -187,7 +196,7 @@ func (ac *AuthController) SignInUser(ctx *gin.Context) {
 	}
 
 	var user *models.User
-	res := ac.DB.First(&user, "email = ?", strings.ToLower(payload.Email))
+	res := c.DB.First(&user, "email = ?", strings.ToLower(payload.Email))
 	if res.Error != nil {
 		message := "Invalid email or password"
 		ctx.JSON(http.StatusUnauthorized, models.HTTPResponse{
@@ -209,7 +218,7 @@ func (ac *AuthController) SignInUser(ctx *gin.Context) {
 		return
 	}
 
-	accessToken, err := utils.CreateToken(ac.config.AccessTokenExpiresIn, user.ID, ac.config.AccessTokenPrivateKey)
+	accessToken, err := utils.CreateToken(c.config.AccessTokenExpiresIn, user.ID, c.config.AccessTokenPrivateKey)
 	if err != nil {
 		ctx.JSON(http.StatusUnauthorized, models.HTTPResponse{
 			Status:     serv.ErrResponseStatus,
@@ -219,7 +228,7 @@ func (ac *AuthController) SignInUser(ctx *gin.Context) {
 		return
 	}
 
-	refreshToken, err := utils.CreateToken(ac.config.RefreshTokenExpiresIn, user.ID, ac.config.RefreshTokenPrivateKey)
+	refreshToken, err := utils.CreateToken(c.config.RefreshTokenExpiresIn, user.ID, c.config.RefreshTokenPrivateKey)
 	if err != nil {
 		ctx.JSON(http.StatusUnauthorized, models.HTTPResponse{
 			Status:     serv.ErrResponseStatus,
@@ -229,9 +238,9 @@ func (ac *AuthController) SignInUser(ctx *gin.Context) {
 		return
 	}
 
-	ctx.SetCookie("token", accessToken, ac.config.AccessTokenMaxAge*60, "/", ac.config.Domain, false, true)
-	ctx.SetCookie("refresh_token", refreshToken, ac.config.RefreshTokenMaxAge*60, "/", ac.config.Domain, false, true)
-	ctx.SetCookie("logged_in", "true", ac.config.AccessTokenMaxAge*60, "/", ac.config.Domain, false, false)
+	ctx.SetCookie("token", accessToken, c.config.AccessTokenMaxAge*60, "/", c.config.Domain, false, true)
+	ctx.SetCookie("refresh_token", refreshToken, c.config.RefreshTokenMaxAge*60, "/", c.config.Domain, false, true)
+	ctx.SetCookie("logged_in", "true", c.config.AccessTokenMaxAge*60, "/", c.config.Domain, false, false)
 
 	ctx.JSON(http.StatusOK, models.HTTPResponse{
 		Status:     serv.SuccessResponseStatus,
@@ -240,7 +249,7 @@ func (ac *AuthController) SignInUser(ctx *gin.Context) {
 	})
 }
 
-func (ac *AuthController) RefreshAccessToken(ctx *gin.Context) {
+func (c *Controller) RefreshAccessToken(ctx *gin.Context) {
 
 	cookie, err := ctx.Cookie("refresh_token")
 	if err != nil {
@@ -253,7 +262,7 @@ func (ac *AuthController) RefreshAccessToken(ctx *gin.Context) {
 		return
 	}
 
-	sub, err := utils.ValidateToken(cookie, ac.config.RefreshTokenPublicKey)
+	sub, err := utils.ValidateToken(cookie, c.config.RefreshTokenPublicKey)
 	if err != nil {
 		ctx.AbortWithStatusJSON(http.StatusForbidden, models.HTTPResponse{
 			Status:     serv.ErrResponseStatus,
@@ -264,7 +273,7 @@ func (ac *AuthController) RefreshAccessToken(ctx *gin.Context) {
 	}
 
 	var user *models.User
-	res := ac.DB.First(&user, "id = ?", fmt.Sprint(sub))
+	res := c.DB.First(&user, "id = ?", fmt.Sprint(sub))
 	if res.Error != nil {
 		message := "the user belonging to this token no logger exists"
 		ctx.AbortWithStatusJSON(http.StatusForbidden, models.HTTPResponse{
@@ -275,7 +284,7 @@ func (ac *AuthController) RefreshAccessToken(ctx *gin.Context) {
 		return
 	}
 
-	accessToken, err := utils.CreateToken(ac.config.AccessTokenExpiresIn, user.ID, ac.config.AccessTokenPrivateKey)
+	accessToken, err := utils.CreateToken(c.config.AccessTokenExpiresIn, user.ID, c.config.AccessTokenPrivateKey)
 	if err != nil {
 		ctx.AbortWithStatusJSON(http.StatusForbidden, models.HTTPResponse{
 			Status:     serv.ErrResponseStatus,
@@ -285,8 +294,8 @@ func (ac *AuthController) RefreshAccessToken(ctx *gin.Context) {
 		return
 	}
 
-	ctx.SetCookie("token", accessToken, ac.config.AccessTokenMaxAge*60, "/", ac.config.Domain, false, true)
-	ctx.SetCookie("logged_in", "true", ac.config.AccessTokenMaxAge*60, "/", ac.config.Domain, false, false)
+	ctx.SetCookie("token", accessToken, c.config.AccessTokenMaxAge*60, "/", c.config.Domain, false, true)
+	ctx.SetCookie("logged_in", "true", c.config.AccessTokenMaxAge*60, "/", c.config.Domain, false, false)
 
 	ctx.JSON(http.StatusOK, models.HTTPResponse{
 		Status:     serv.SuccessResponseStatus,
@@ -295,10 +304,10 @@ func (ac *AuthController) RefreshAccessToken(ctx *gin.Context) {
 	})
 }
 
-func (ac *AuthController) LogoutUser(ctx *gin.Context) {
-	ctx.SetCookie("token", "", -1, "/", ac.config.Domain, false, true)
-	ctx.SetCookie("refresh_token", "", -1, "/", ac.config.Domain, false, true)
-	ctx.SetCookie("logged_in", "", -1, "/", ac.config.Domain, false, false)
+func (c *Controller) LogoutUser(ctx *gin.Context) {
+	ctx.SetCookie("token", "", -1, "/", c.config.Domain, false, true)
+	ctx.SetCookie("refresh_token", "", -1, "/", c.config.Domain, false, true)
+	ctx.SetCookie("logged_in", "", -1, "/", c.config.Domain, false, false)
 
 	ctx.JSON(http.StatusOK, models.HTTPResponse{
 		Status:     serv.SuccessResponseStatus,
@@ -306,7 +315,7 @@ func (ac *AuthController) LogoutUser(ctx *gin.Context) {
 	})
 }
 
-func (ac *AuthController) DeserializeUser() gin.HandlerFunc {
+func (c *Controller) DeserializeUser() gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		var accessToken string
 		cookie, err := ctx.Cookie("token")
@@ -330,7 +339,7 @@ func (ac *AuthController) DeserializeUser() gin.HandlerFunc {
 			return
 		}
 
-		sub, err := utils.ValidateToken(accessToken, ac.config.AccessTokenPublicKey)
+		sub, err := utils.ValidateToken(accessToken, c.config.AccessTokenPublicKey)
 		if err != nil {
 			ctx.AbortWithStatusJSON(http.StatusUnauthorized, models.HTTPResponse{
 				Status:     serv.ErrResponseStatus,
@@ -341,7 +350,7 @@ func (ac *AuthController) DeserializeUser() gin.HandlerFunc {
 		}
 
 		var user models.User
-		res := ac.DB.First(&user, "id = ?", fmt.Sprint(sub))
+		res := c.DB.First(&user, "id = ?", fmt.Sprint(sub))
 		if res.Error != nil {
 			message := "The user belonging to this token no logger exists"
 			ctx.AbortWithStatusJSON(http.StatusForbidden, models.HTTPResponse{
@@ -357,7 +366,7 @@ func (ac *AuthController) DeserializeUser() gin.HandlerFunc {
 	}
 }
 
-func (ac *AuthController) CheckAccessRole(accessRole string) gin.HandlerFunc {
+func (c *Controller) CheckAccessRole(accessRole string) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		currentUser := ctx.MustGet("currentUser").(models.User)
 

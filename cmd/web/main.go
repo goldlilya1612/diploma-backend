@@ -3,9 +3,10 @@ package main
 import (
 	"flag"
 	"fmt"
-	"github.com/goldlilya1612/diploma-backend/internal/app"
+	"github.com/goldlilya1612/diploma-backend/internal/controllers/auth"
+	"github.com/goldlilya1612/diploma-backend/internal/controllers/course"
+	"github.com/goldlilya1612/diploma-backend/internal/controllers/user"
 	"github.com/goldlilya1612/diploma-backend/internal/database"
-	"github.com/goldlilya1612/diploma-backend/internal/services/auth"
 	"github.com/goldlilya1612/diploma-backend/internal/transport/http"
 	"os"
 )
@@ -29,24 +30,21 @@ func main() {
 	//})
 	//viper.WatchConfig()
 
-	psql, err := app.StartPostgreSQL(dbConfig)
+	psql := database.NewPostgreSQL(dbConfig)
+	err = psql.StartPostgreSQL()
 	if err != nil {
 		fmt.Fprint(os.Stderr, err)
 		os.Exit(1)
 	}
 
 	serverConfig := http.NewConfig()
-	gs := http.NewGinServer(serverConfig)
+	server := http.NewGinServer(serverConfig)
 
 	authConfig := auth.NewConfig()
-	authRouter := app.PrepareAuthRoute(authConfig, psql.DB)
-	usersRouter := app.PrepareUsersRoute(psql.DB, authRouter.AuthController)
-	coursesRouter := app.PrepareCoursesRoute(psql.DB, authRouter.AuthController)
+	authController := auth.NewController(authConfig, psql.DB)
+	userController := user.NewController(psql.DB, authController)
+	courseController := course.NewController(psql.DB, authController)
 
-	mainGroup := gs.Server.Group("/api")
-	authRouter.AuthRoute(mainGroup)
-	usersRouter.UsersRoute(mainGroup)
-	coursesRouter.CourseRoute(mainGroup)
-
-	app.StartGinServer(gs)
+	server.StartAllRoutes(authController, userController, courseController)
+	server.StartGinServer()
 }

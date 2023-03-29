@@ -12,31 +12,48 @@ const (
 	SuccessResponseStatus = "success"
 )
 
+type Router interface {
+	Route(rg *gin.RouterGroup)
+}
+
 type GinServer struct {
-	config *Config
+	Config *Config
 	Server *gin.Engine
+	Router *gin.RouterGroup
 }
 
 func NewGinServer(config *Config) *GinServer {
 
 	serv := gin.Default()
 	serv.Use(cors.New(config.Cors))
+	defaultRoute := serv.Group("/api")
 
 	return &GinServer{
-		config: config,
+		Config: config,
 		Server: serv,
+		Router: defaultRoute,
 	}
 }
 
-func (gs *GinServer) PrepareHealthchecker() {
-	router := gs.Server.Group("/api")
-	router.GET("/healthchecker", func(ctx *gin.Context) {
+func (gs *GinServer) prepareHealthchecker() {
+	gs.Router.GET("/healthchecker", func(ctx *gin.Context) {
 		message := "Connected"
 		status := "success"
 		ctx.JSON(http.StatusOK, gin.H{"status": status, "message": message})
 	})
 }
 
-func (gs *GinServer) Start() {
-	log.Fatal(gs.Server.Run(":" + gs.config.Port))
+func (gs *GinServer) start() {
+	log.Fatal(gs.Server.Run(":" + gs.Config.Port))
+}
+
+func (gs *GinServer) StartGinServer() {
+	gs.prepareHealthchecker()
+	gs.start()
+}
+
+func (gs *GinServer) StartAllRoutes(routers ...Router) {
+	for _, r := range routers {
+		r.Route(gs.Router)
+	}
 }
