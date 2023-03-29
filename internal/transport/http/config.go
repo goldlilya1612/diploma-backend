@@ -1,25 +1,40 @@
 package http
 
 import (
-	"github.com/gin-contrib/cors"
-	"time"
+	"github.com/spf13/viper"
 )
 
 type Config struct {
-	Port string      `toml:"port"`
-	Cors cors.Config `toml:"cors"`
+	Host   string `mapstructure:"GIN_HOST"`
+	Port   string `mapstructure:"GIN_PORT"`
+	Scheme string `mapstructure:"GIN_SCHEME"`
+
+	AllowOrigins     []string `mapstructure:"GIN_ALLOW_ORIGINS"`
+	AllowMethods     []string `mapstructure:"GIN_ALLOW_METHODS"`
+	AllowHeaders     []string `mapstructure:"GIN_ALLOW_HEADERS"`
+	ExposeHeaders    []string `mapstructure:"GIN_EXPOSE_HEADERS"`
+	AllowCredentials bool     `mapstructure:"GIN_ALLOW_CREDENTIALS"`
 }
 
-func NewConfig() *Config {
-	return &Config{
-		Port: "8080",
-		Cors: cors.Config{
-			AllowOrigins:     []string{"http://localhost:3000"},
-			AllowMethods:     []string{"*"},
-			AllowHeaders:     []string{"*"},
-			ExposeHeaders:    []string{"*"},
-			AllowCredentials: true,
-			MaxAge:           12 * time.Hour,
-		},
+func NewConfigFromEnv(path, name string) (*Config, error) {
+
+	viper.AddConfigPath(path)
+	viper.SetConfigName(name)
+	viper.SetConfigType("env")
+
+	viper.AllowEmptyEnv(true)
+
+	viper.AutomaticEnv()
+
+	err := viper.ReadInConfig()
+	if err != nil {
+		return nil, err
 	}
+
+	var config Config
+	err = viper.Unmarshal(&config)
+	if err != nil {
+		return nil, err
+	}
+	return &config, nil
 }

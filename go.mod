@@ -48,6 +48,7 @@ require (
 
 require (
 	github.com/gin-contrib/cors v1.4.0
+	github.com/gin-contrib/location v0.0.2
 	github.com/golang-jwt/jwt v3.2.2+incompatible
 	github.com/jackc/pgx/v5 v5.3.0
 	github.com/lib/pq v1.10.7

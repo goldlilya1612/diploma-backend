@@ -13,6 +13,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 	"time"
@@ -424,7 +425,7 @@ func imageUpload(ctx *gin.Context) (imageName string, imagePath string, url stri
 	originalImageName := strings.TrimSuffix(filepath.Base(header.Filename), filepath.Ext(header.Filename))
 	now := time.Now()
 	imageName = strings.ReplaceAll(strings.ToLower(originalImageName), " ", "-") + "-" + fmt.Sprintf("%v", now.Unix()) + fileExt
-	url = "http://localhost:8080/api/course/images/" + imageName //  TODO: подставлять урл из настроек сервера
+	url = path.Join(ctx.Request.Host, "/api", coursesRout, "/images", imageName)
 
 	if _, err := os.Stat(imagesDir); os.IsNotExist(err) {
 		err := os.MkdirAll(imagesDir, os.ModePerm)
@@ -458,10 +459,6 @@ func deleteImage(path string) {
 		// TODO: интегрировать с логером Gin
 		log.Printf("[ERROR] File deletion error: %s", err.Error())
 	}
-}
-
-func RemoteUpload(ctx *gin.Context) {
-
 }
 
 func checkCourseAccess() {

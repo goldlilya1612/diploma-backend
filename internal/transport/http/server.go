@@ -2,8 +2,10 @@ package http
 
 import (
 	"github.com/gin-contrib/cors"
+	"github.com/gin-contrib/location"
 	"github.com/gin-gonic/gin"
 	"log"
+	"net"
 	"net/http"
 )
 
@@ -17,26 +19,37 @@ type Router interface {
 }
 
 type GinServer struct {
-	Config *Config
-	Server *gin.Engine
-	Router *gin.RouterGroup
+	Config       *Config
+	Server       *gin.Engine
+	InitialRoute *gin.RouterGroup
 }
 
 func NewGinServer(config *Config) *GinServer {
 
 	serv := gin.Default()
-	serv.Use(cors.New(config.Cors))
-	defaultRoute := serv.Group("/api")
+
+	locationConf := location.Config{
+		Host:   net.JoinHostPort(config.Host, config.Port),
+		Scheme: config.Scheme,
+	}
+	corsConf := cors.Config{
+		AllowOrigins:     config.AllowOrigins,
+		AllowMethods:     config.AllowMethods,
+		AllowHeaders:     config.AllowHeaders,
+		ExposeHeaders:    config.ExposeHeaders,
+		AllowCredentials: config.AllowCredentials,
+	}
+	serv.Use(location.New(locationConf), cors.New(corsConf))
 
 	return &GinServer{
-		Config: config,
-		Server: serv,
-		Router: defaultRoute,
+		Config:       config,
+		Server:       serv,
+		InitialRoute: serv.RouterGroup.Group("/api"),
 	}
 }
 
 func (gs *GinServer) prepareHealthchecker() {
-	gs.Router.GET("/healthchecker", func(ctx *gin.Context) {
+	gs.InitialRoute.GET("/healthchecker", func(ctx *gin.Context) {
 		message := "Connected"
 		status := "success"
 		ctx.JSON(http.StatusOK, gin.H{"status": status, "message": message})
@@ -54,6 +67,6 @@ func (gs *GinServer) StartGinServer() {
 
 func (gs *GinServer) StartAllRoutes(routers ...Router) {
 	for _, r := range routers {
-		r.Route(gs.Router)
+		r.Route(gs.InitialRoute)
 	}
 }
