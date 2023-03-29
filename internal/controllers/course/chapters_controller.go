@@ -35,7 +35,7 @@ func (c *Controller) CreateChapter(ctx *gin.Context) {
 	}
 
 	var creatorID string
-	res := c.DB.Table("course").Select("creator_id").Where("id = ?", payload.CourseID).
+	res := c.DB.Table("courses").Select("creator_id").Where("id = ?", payload.CourseID).
 		Scan(&creatorID)
 	if res.Error != nil {
 		ctx.JSON(http.StatusBadRequest, models.HTTPResponse{
@@ -107,7 +107,7 @@ func (c *Controller) UpdateChapter(ctx *gin.Context) {
 	}
 
 	var creatorID string
-	res := c.DB.Table("course").
+	res := c.DB.Table("courses").
 		Joins("JOIN Chapters ON Chapters.course_id = Courses.id").
 		Select("creator_id").Where("Chapters.id = ?", payload.ID).
 		Scan(&creatorID)

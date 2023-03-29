@@ -33,7 +33,7 @@ func (c *Controller) CreateArticle(ctx *gin.Context) {
 	}
 
 	var creatorID string
-	res := c.DB.Table("course").Joins("JOIN Chapters ON Chapters.course_id = Courses.id").
+	res := c.DB.Table("courses").Joins("JOIN Chapters ON Chapters.course_id = Courses.id").
 		Select("creator_id").Where("Chapters.id = ?", payload.ChapterID).Scan(&creatorID)
 	if res.Error != nil {
 		ctx.JSON(http.StatusBadRequest, models.HTTPResponse{
@@ -105,7 +105,7 @@ func (c *Controller) UpdateArticle(ctx *gin.Context) {
 	}
 
 	var creatorID string
-	res := c.DB.Table("course").
+	res := c.DB.Table("courses").
 		InnerJoins("JOIN Chapters ON Chapters.course_id = Courses.id").
 		InnerJoins("JOIN Articles ON Articles.chapter_id = Chapters.id").
 		Select("creator_id").

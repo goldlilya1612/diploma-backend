@@ -182,7 +182,7 @@ func (c *Controller) GetCourse(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, models.HTTPResponse{
 		Status:     serv.SuccessResponseStatus,
 		StatusCode: http.StatusOK,
-		Data:       map[string]interface{}{"course": coursesResponse},
+		Data:       map[string]interface{}{"courses": coursesResponse},
 	})
 }
 
@@ -220,7 +220,7 @@ func (c *Controller) GetCourses(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, models.HTTPResponse{
 		Status:     serv.SuccessResponseStatus,
 		StatusCode: http.StatusOK,
-		Data:       map[string]interface{}{"course": coursesResponse},
+		Data:       map[string]interface{}{"courses": coursesResponse},
 	})
 }
 
