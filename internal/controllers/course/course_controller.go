@@ -40,7 +40,6 @@ func NewController(DB *gorm.DB, authController *auth.Controller) *Controller {
 }
 
 func (c *Controller) Route(rg *gin.RouterGroup) {
-
 	coursesRouter := rg.Group(coursesRout)
 
 	coursesRouter.POST("/create", c.authController.DeserializeUser(), c.authController.CheckAccessRole(auth.LecturerRole), c.CreateCourse)
@@ -134,11 +133,6 @@ func (c *Controller) GetCourse(ctx *gin.Context) {
 	params := ctx.Request.URL.Query()
 	ids := params["id"]
 
-	type Result struct {
-		course  models.Course
-		chapter models.ChapterResponse
-	}
-
 	for _, id := range ids {
 
 		course := models.Course{}
@@ -191,7 +185,7 @@ func (c *Controller) GetCourses(ctx *gin.Context) {
 	var coursesResponse []models.CourseResponse
 
 	var courses []models.Course
-	res := c.DB.Joins("Lecturer").Joins("Image").Find(&courses)
+	res := c.DB.Joins("Lecturer").Joins("Image").Order("id").Find(&courses)
 	if res.Error != nil {
 		ctx.JSON(http.StatusBadRequest, models.HTTPResponse{
 			Status:     serv.ErrResponseStatus,
@@ -241,7 +235,7 @@ func (c *Controller) UpdateCourse(ctx *gin.Context) {
 	res := c.DB.Joins("Image").Joins("Lecturer").
 		First(&course, "Courses.id = ?", payload.ID)
 	if res.Error != nil && strings.Contains(res.Error.Error(), "record not found") {
-		message := fmt.Sprintf("Course with id=%s not found", payload.ID)
+		message := fmt.Sprintf("Course with id=%d not found", payload.ID)
 		ctx.JSON(http.StatusBadRequest, models.HTTPResponse{
 			Status:     serv.ErrResponseStatus,
 			StatusCode: http.StatusBadRequest,
@@ -453,14 +447,9 @@ func deleteImage(path string) {
 	if _, err := os.Stat(path); errors.Is(err, os.ErrNotExist) {
 		return
 	}
-
 	err := os.Remove(path)
 	if err != nil {
 		// TODO: интегрировать с логером Gin
 		log.Printf("[ERROR] File deletion error: %s", err.Error())
 	}
-}
-
-func checkCourseAccess() {
-
 }
