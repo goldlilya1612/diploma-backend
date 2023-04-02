@@ -19,7 +19,7 @@ type Course struct {
 	Image    Image    `gorm:"foreignKey:ImageID;constraint:OnDelete:CASCADE;"`
 	Lecturer Lecturer `gorm:"foreignKey:CreatorID;references:UserID"`
 
-	Chapters []Chapter
+	Chapters []Chapter `gorm:"constraint:OnDelete:CASCADE;"`
 }
 
 type CreateCourse struct {

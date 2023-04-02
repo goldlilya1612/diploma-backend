@@ -337,7 +337,9 @@ func (c *Controller) DeleteCourse(ctx *gin.Context) {
 	for _, id := range ids {
 
 		course := models.Course{}
-		res := c.DB.Joins("Image").First(&course, "Courses.id = ?", id)
+		res := c.DB.Preload("Chapters.Articles").
+			Joins("Lecturer").Joins("Image").
+			First(&course, "Courses.id = ?", id)
 		if res.Error != nil && strings.Contains(res.Error.Error(), "record not found") {
 			message := fmt.Sprintf("Course with id=%s not found", id)
 			ctx.JSON(http.StatusBadRequest, models.HTTPResponse{
@@ -366,17 +368,7 @@ func (c *Controller) DeleteCourse(ctx *gin.Context) {
 			return
 		}
 
-		//err := cc.DB.Model(&course).Association("Image").Error
-		//if err != nil {
-		//	ctx.JSON(http.StatusConflict, models.HTTPResponse{
-		//		Status:     serv.ErrResponseStatus,
-		//		StatusCode: http.StatusConflict,
-		//		Message:    err.Error(),
-		//	})
-		//	return
-		//}
-
-		res = c.DB.Joins("join images on images.id = course.image").Where("images.id = ?", fmt.Sprint(course.Image)).Delete(&course)
+		res = c.DB.Delete(&course.Image)
 		if res.Error != nil {
 			ctx.JSON(http.StatusBadRequest, models.HTTPResponse{
 				Status:     serv.ErrResponseStatus,
@@ -390,10 +382,12 @@ func (c *Controller) DeleteCourse(ctx *gin.Context) {
 		courseResponse := models.CourseResponse{
 			ID:          course.ID,
 			Name:        course.Name,
+			CreatorName: course.Lecturer.Name,
 			Image:       course.Image,
 			Category:    course.Category,
 			Description: course.Description,
 			Route:       utils.Latinizer(course.Name),
+			Chapters:    course.Chapters,
 
 			CreatedAt: course.CreatedAt,
 			UpdatedAt: course.UpdatedAt,
