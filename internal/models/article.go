@@ -29,7 +29,7 @@ type UpdateArticle struct {
 type ArticleResponse struct {
 	ID        int    `json:"id"`
 	Name      string `json:"name"`
-	ChapterID int    `json:"courseID"`
+	ChapterID int    `json:"chapterID"`
 	Route     string `json:"route"`
 
 	CreatedAt time.Time `json:"createdAt"`
