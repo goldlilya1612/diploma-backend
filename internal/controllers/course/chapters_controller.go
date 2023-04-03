@@ -36,7 +36,10 @@ func (c *Controller) CreateChapter(ctx *gin.Context) {
 	}
 
 	var creatorID string
-	res := c.DB.Table("courses").Select("creator_id").Where("id = ?", payload.CourseID).
+	res := c.DB.
+		Table("courses").
+		Select("creator_id").
+		Where("id = ?", payload.CourseID).
 		Scan(&creatorID)
 	if res.Error != nil {
 		ctx.JSON(http.StatusBadRequest, models.HTTPResponse{
@@ -107,11 +110,10 @@ func (c *Controller) UpdateChapter(ctx *gin.Context) {
 		return
 	}
 
-	var creatorID string
-	res := c.DB.Table("courses").
-		Joins("JOIN Chapters ON Chapters.course_id = Courses.id").
-		Select("creator_id").Where("Chapters.id = ?", payload.ID).
-		Scan(&creatorID)
+	chapter := models.Chapter{}
+	res := c.DB.
+		Preload("Course").
+		First(&chapter, "Chapters.id = ?", payload.ID)
 	if res.Error != nil {
 		ctx.JSON(http.StatusBadRequest, models.HTTPResponse{
 			Status:     serv.ErrResponseStatus,
@@ -122,7 +124,7 @@ func (c *Controller) UpdateChapter(ctx *gin.Context) {
 	}
 
 	currentUser := ctx.MustGet("currentUser").(models.User)
-	if currentUser.ID.String() != creatorID {
+	if currentUser.ID != chapter.Course.CreatorID {
 		message := "Access denied"
 		ctx.JSON(http.StatusForbidden, models.HTTPResponse{
 			Status:     serv.ErrResponseStatus,
@@ -132,12 +134,8 @@ func (c *Controller) UpdateChapter(ctx *gin.Context) {
 		return
 	}
 
-	updatedChapter := models.Chapter{
-		ID: payload.ID,
-	}
-	res = c.DB.Model(&updatedChapter).Clauses(clause.Returning{}).Updates(models.Chapter{
-		Name: payload.Name,
-	})
+	chapter.Name = payload.Name
+	res = c.DB.Updates(&chapter)
 	if res.Error != nil {
 		ctx.JSON(http.StatusConflict, models.HTTPResponse{
 			Status:     serv.ErrResponseStatus,
@@ -148,13 +146,13 @@ func (c *Controller) UpdateChapter(ctx *gin.Context) {
 	}
 
 	chapterResponse := models.ChapterResponse{
-		ID:       updatedChapter.ID,
-		Name:     updatedChapter.Name,
-		CourseID: updatedChapter.CourseID,
-		Route:    utils.Latinizer(updatedChapter.Name),
+		ID:       chapter.ID,
+		Name:     chapter.Name,
+		CourseID: chapter.CourseID,
+		Route:    utils.Latinizer(chapter.Name),
 
-		CreatedAt: updatedChapter.CreatedAt,
-		UpdatedAt: updatedChapter.UpdatedAt,
+		CreatedAt: chapter.CreatedAt,
+		UpdatedAt: chapter.UpdatedAt,
 	}
 
 	ctx.JSON(http.StatusOK, models.HTTPResponse{
@@ -172,9 +170,11 @@ func (c *Controller) DeleteChapters(ctx *gin.Context) {
 
 	for _, id := range ids {
 
-		chapter := models.Chapter{}
-		res := c.DB.Preload("Articles").
-			Joins("Course").First(&chapter, "Chapters.id = ?", id)
+		chapter := models.Chapter{Articles: []models.Article{}}
+		res := c.DB.
+			Preload("Articles").
+			Joins("Course").
+			First(&chapter, "Chapters.id = ?", id)
 		if res.Error != nil {
 			ctx.JSON(http.StatusBadRequest, models.HTTPResponse{
 				Status:     serv.ErrResponseStatus,

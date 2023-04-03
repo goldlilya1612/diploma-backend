@@ -136,8 +136,11 @@ func (c *Controller) GetCourse(ctx *gin.Context) {
 	for _, id := range ids {
 
 		course := models.Course{}
-		res := c.DB.Preload("Chapters.Articles").
-			Joins("Lecturer").Joins("Image").
+		res := c.DB.
+			Joins("Lecturer").
+			Joins("Image").
+			Joins("Chapters").
+			Order("Chapters.id").
 			First(&course, "Courses.id = ?", id)
 		if res.Error != nil && strings.Contains(res.Error.Error(), "record not found") {
 			message := fmt.Sprintf("Course with id=%s not found", id)
@@ -185,7 +188,11 @@ func (c *Controller) GetCourses(ctx *gin.Context) {
 	var coursesResponse []models.CourseResponse
 
 	var courses []models.Course
-	res := c.DB.Joins("Lecturer").Joins("Image").Order("id").Find(&courses)
+	res := c.DB.
+		Joins("Lecturer").
+		Joins("Image").
+		Order("Courses.id").
+		Find(&courses)
 	if res.Error != nil {
 		ctx.JSON(http.StatusBadRequest, models.HTTPResponse{
 			Status:     serv.ErrResponseStatus,
@@ -232,7 +239,9 @@ func (c *Controller) UpdateCourse(ctx *gin.Context) {
 	}
 
 	course := models.Course{}
-	res := c.DB.Joins("Image").Joins("Lecturer").
+	res := c.DB.
+		Joins("Image").
+		Joins("Lecturer").
 		First(&course, "Courses.id = ?", payload.ID)
 	if res.Error != nil && strings.Contains(res.Error.Error(), "record not found") {
 		message := fmt.Sprintf("Course with id=%d not found", payload.ID)
@@ -317,6 +326,7 @@ func (c *Controller) UpdateCourse(ctx *gin.Context) {
 		Description: course.Description,
 		Route:       utils.Latinizer(course.Name),
 
+		CreatedAt: course.CreatedAt,
 		UpdatedAt: course.UpdatedAt,
 	}
 
@@ -337,7 +347,8 @@ func (c *Controller) DeleteCourse(ctx *gin.Context) {
 	for _, id := range ids {
 
 		course := models.Course{}
-		res := c.DB.Preload("Chapters.Articles").
+		res := c.DB.
+			Preload("Chapters.Articles").
 			Joins("Lecturer").Joins("Image").
 			First(&course, "Courses.id = ?", id)
 		if res.Error != nil && strings.Contains(res.Error.Error(), "record not found") {

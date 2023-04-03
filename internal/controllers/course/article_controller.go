@@ -17,6 +17,8 @@ func (c *Controller) articlesRoute(rg *gin.RouterGroup) {
 
 	articlesRouter.POST("/create", c.authController.DeserializeUser(), c.authController.CheckAccessRole(auth.LecturerRole), c.CreateArticle)
 	articlesRouter.PATCH("/update", c.authController.DeserializeUser(), c.authController.CheckAccessRole(auth.LecturerRole), c.UpdateArticle)
+	articlesRouter.DELETE("/delete", c.authController.DeserializeUser(), c.authController.CheckAccessRole(auth.LecturerRole), c.DeleteArticles)
+
 }
 
 func (c *Controller) CreateArticle(ctx *gin.Context) {
@@ -33,8 +35,12 @@ func (c *Controller) CreateArticle(ctx *gin.Context) {
 	}
 
 	var creatorID string
-	res := c.DB.Table("courses").Joins("JOIN Chapters ON Chapters.course_id = Courses.id").
-		Select("creator_id").Where("Chapters.id = ?", payload.ChapterID).Scan(&creatorID)
+	res := c.DB.
+		Table("courses").
+		Select("creator_id").
+		Joins("JOIN Chapters ON Chapters.course_id = Courses.id").
+		Where("Chapters.id = ?", payload.ChapterID).
+		Scan(&creatorID)
 	if res.Error != nil {
 		ctx.JSON(http.StatusBadRequest, models.HTTPResponse{
 			Status:     serv.ErrResponseStatus,
@@ -78,7 +84,7 @@ func (c *Controller) CreateArticle(ctx *gin.Context) {
 		ID:        newArticle.ID,
 		Name:      newArticle.Name,
 		ChapterID: newArticle.ChapterID,
-		Route:     utils.Latinizer(payload.Name),
+		Route:     utils.Latinizer(newArticle.Name),
 
 		CreatedAt: newArticle.CreatedAt,
 		UpdatedAt: newArticle.UpdatedAt,
@@ -104,13 +110,10 @@ func (c *Controller) UpdateArticle(ctx *gin.Context) {
 		return
 	}
 
-	var creatorID string
-	res := c.DB.Table("courses").
-		InnerJoins("JOIN Chapters ON Chapters.course_id = Courses.id").
-		InnerJoins("JOIN Articles ON Articles.chapter_id = Chapters.id").
-		Select("creator_id").
-		Where("Articles.id = ?", payload.ID).
-		Scan(&creatorID)
+	article := models.Article{}
+	res := c.DB.
+		Preload("Chapter.Course").
+		First(&article, "Articles.id = ?", payload.ID)
 	if res.Error != nil {
 		ctx.JSON(http.StatusBadRequest, models.HTTPResponse{
 			Status:     serv.ErrResponseStatus,
@@ -121,7 +124,7 @@ func (c *Controller) UpdateArticle(ctx *gin.Context) {
 	}
 
 	currentUser := ctx.MustGet("currentUser").(models.User)
-	if currentUser.ID.String() != creatorID {
+	if currentUser.ID != article.Chapter.Course.CreatorID {
 		message := "Access denied"
 		ctx.JSON(http.StatusForbidden, models.HTTPResponse{
 			Status:     serv.ErrResponseStatus,
@@ -131,12 +134,8 @@ func (c *Controller) UpdateArticle(ctx *gin.Context) {
 		return
 	}
 
-	updatedArticle := models.Article{
-		ID: payload.ID,
-	}
-	res = c.DB.Model(&updatedArticle).Clauses(clause.Returning{}).Updates(models.Article{
-		Name: payload.Name,
-	})
+	article.Name = payload.Name
+	res = c.DB.Updates(&article)
 	if res.Error != nil {
 		ctx.JSON(http.StatusConflict, models.HTTPResponse{
 			Status:     serv.ErrResponseStatus,
@@ -146,23 +145,77 @@ func (c *Controller) UpdateArticle(ctx *gin.Context) {
 		return
 	}
 
-	chapterResponse := &models.ArticleResponse{
-		ID:        updatedArticle.ID,
-		Name:      updatedArticle.Name,
-		ChapterID: updatedArticle.ChapterID,
-		Route:     utils.Latinizer(payload.Name),
+	articleResponse := &models.ArticleResponse{
+		ID:        article.ID,
+		Name:      article.Name,
+		ChapterID: article.ChapterID,
+		Route:     utils.Latinizer(article.Name),
 
-		CreatedAt: updatedArticle.CreatedAt,
-		UpdatedAt: updatedArticle.UpdatedAt,
+		CreatedAt: article.CreatedAt,
+		UpdatedAt: article.UpdatedAt,
 	}
 
 	ctx.JSON(http.StatusOK, models.HTTPResponse{
 		Status:     serv.SuccessResponseStatus,
 		StatusCode: http.StatusOK,
-		Data:       map[string]interface{}{"updatedChapter": chapterResponse},
+		Data:       map[string]interface{}{"updatedArticles": articleResponse},
 	})
 }
 
 func (c *Controller) DeleteArticles(ctx *gin.Context) {
+	var articlesResponse []models.ArticleResponse
 
+	params := ctx.Request.URL.Query()
+	ids := params["id"]
+
+	for _, id := range ids {
+
+		article := models.Article{}
+		res := c.DB.
+			Preload("Chapter.Course").
+			First(&article, "Articles.id = ?", id)
+		if res.Error != nil {
+			ctx.JSON(http.StatusBadRequest, models.HTTPResponse{
+				Status:     serv.ErrResponseStatus,
+				StatusCode: http.StatusBadRequest,
+				Message:    res.Error.Error(),
+			})
+			return
+		}
+
+		currentUser := ctx.MustGet("currentUser").(models.User)
+		if currentUser.ID != article.Chapter.Course.CreatorID {
+			message := "Access denied"
+			ctx.JSON(http.StatusForbidden, models.HTTPResponse{
+				Status:     serv.ErrResponseStatus,
+				StatusCode: http.StatusForbidden,
+				Message:    message,
+			})
+			return
+		}
+
+		res = c.DB.Clauses(clause.Returning{}).Delete(&article)
+		if res.Error != nil {
+			ctx.JSON(http.StatusConflict, models.HTTPResponse{
+				Status:     serv.ErrResponseStatus,
+				StatusCode: http.StatusConflict,
+				Message:    res.Error.Error(),
+			})
+			return
+		}
+
+		articleResponse := models.ArticleResponse{
+			ID:        article.ID,
+			Name:      article.Name,
+			ChapterID: article.ChapterID,
+			Route:     utils.Latinizer(article.Name),
+		}
+		articlesResponse = append(articlesResponse, articleResponse)
+	}
+
+	ctx.JSON(http.StatusOK, models.HTTPResponse{
+		Status:     serv.SuccessResponseStatus,
+		StatusCode: http.StatusOK,
+		Data:       map[string]interface{}{"deletedArticles": articlesResponse},
+	})
 }
