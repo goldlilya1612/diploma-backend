@@ -139,8 +139,12 @@ func (c *Controller) GetCourse(ctx *gin.Context) {
 		res := c.DB.
 			Joins("Lecturer").
 			Joins("Image").
-			Joins("Chapters").
-			Order("Chapters.id").
+			Preload("Chapters", func(db *gorm.DB) *gorm.DB {
+				return db.Order("Chapters.id").
+					Preload("Articles", func(db *gorm.DB) *gorm.DB {
+						return db.Order("Articles.id")
+					})
+			}).
 			First(&course, "Courses.id = ?", id)
 		if res.Error != nil && strings.Contains(res.Error.Error(), "record not found") {
 			message := fmt.Sprintf("Course with id=%s not found", id)
