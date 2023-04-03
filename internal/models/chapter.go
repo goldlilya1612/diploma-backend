@@ -30,6 +30,8 @@ type ChapterResponse struct {
 	CourseID int    `json:"courseID"`
 	Route    string `json:"route"`
 
+	Articles []Article `json:"articles"`
+
 	CreatedAt time.Time `json:"createdAt"`
 	UpdatedAt time.Time `json:"updatedAt"`
 }

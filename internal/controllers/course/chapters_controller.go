@@ -17,6 +17,7 @@ func (c *Controller) chaptersRoute(rg *gin.RouterGroup) {
 
 	chaptersRouter.POST("/create", c.authController.DeserializeUser(), c.authController.CheckAccessRole(auth.LecturerRole), c.CreateChapter)
 	chaptersRouter.PATCH("/update", c.authController.DeserializeUser(), c.authController.CheckAccessRole(auth.LecturerRole), c.UpdateChapter)
+	chaptersRouter.DELETE("/delete", c.authController.DeserializeUser(), c.authController.CheckAccessRole(auth.LecturerRole), c.DeleteChapters)
 
 	c.articlesRoute(chaptersRouter)
 }
@@ -76,11 +77,11 @@ func (c *Controller) CreateChapter(ctx *gin.Context) {
 		return
 	}
 
-	chapterResponse := &models.ChapterResponse{
+	chapterResponse := models.ChapterResponse{
 		ID:       newChapter.ID,
 		Name:     newChapter.Name,
 		CourseID: newChapter.CourseID,
-		Route:    utils.Latinizer(payload.Name),
+		Route:    utils.Latinizer(newChapter.Name),
 
 		CreatedAt: newChapter.CreatedAt,
 		UpdatedAt: newChapter.UpdatedAt,
@@ -146,11 +147,11 @@ func (c *Controller) UpdateChapter(ctx *gin.Context) {
 		return
 	}
 
-	chapterResponse := &models.ChapterResponse{
+	chapterResponse := models.ChapterResponse{
 		ID:       updatedChapter.ID,
 		Name:     updatedChapter.Name,
 		CourseID: updatedChapter.CourseID,
-		Route:    utils.Latinizer(payload.Name),
+		Route:    utils.Latinizer(updatedChapter.Name),
 
 		CreatedAt: updatedChapter.CreatedAt,
 		UpdatedAt: updatedChapter.UpdatedAt,
@@ -164,5 +165,59 @@ func (c *Controller) UpdateChapter(ctx *gin.Context) {
 }
 
 func (c *Controller) DeleteChapters(ctx *gin.Context) {
+	var chaptersResponse []models.ChapterResponse
 
+	params := ctx.Request.URL.Query()
+	ids := params["id"]
+
+	for _, id := range ids {
+
+		chapter := models.Chapter{}
+		res := c.DB.Preload("Articles").
+			Joins("Course").First(&chapter, "Chapters.id = ?", id)
+		if res.Error != nil {
+			ctx.JSON(http.StatusBadRequest, models.HTTPResponse{
+				Status:     serv.ErrResponseStatus,
+				StatusCode: http.StatusBadRequest,
+				Message:    res.Error.Error(),
+			})
+			return
+		}
+
+		currentUser := ctx.MustGet("currentUser").(models.User)
+		if currentUser.ID != chapter.Course.CreatorID {
+			message := "Access denied"
+			ctx.JSON(http.StatusForbidden, models.HTTPResponse{
+				Status:     serv.ErrResponseStatus,
+				StatusCode: http.StatusForbidden,
+				Message:    message,
+			})
+			return
+		}
+
+		res = c.DB.Clauses(clause.Returning{}).Delete(&chapter)
+		if res.Error != nil {
+			ctx.JSON(http.StatusConflict, models.HTTPResponse{
+				Status:     serv.ErrResponseStatus,
+				StatusCode: http.StatusConflict,
+				Message:    res.Error.Error(),
+			})
+			return
+		}
+
+		chapterResponse := models.ChapterResponse{
+			ID:       chapter.ID,
+			Name:     chapter.Name,
+			CourseID: chapter.CourseID,
+			Route:    utils.Latinizer(chapter.Name),
+			Articles: chapter.Articles,
+		}
+		chaptersResponse = append(chaptersResponse, chapterResponse)
+	}
+
+	ctx.JSON(http.StatusOK, models.HTTPResponse{
+		Status:     serv.SuccessResponseStatus,
+		StatusCode: http.StatusOK,
+		Data:       map[string]interface{}{"deletedChapters": chaptersResponse},
+	})
 }

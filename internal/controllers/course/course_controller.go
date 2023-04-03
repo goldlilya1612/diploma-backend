@@ -106,14 +106,14 @@ func (c *Controller) CreateCourse(ctx *gin.Context) {
 		return
 	}
 
-	courseResponse := &models.CourseResponse{
+	courseResponse := models.CourseResponse{
 		ID:          newCourse.ID,
 		Name:        newCourse.Name,
 		CreatorName: currentUser.Name,
 		Image:       newCourse.Image,
 		Category:    newCourse.Category,
 		Description: newCourse.Description,
-		Route:       utils.Latinizer(payload.Name),
+		Route:       utils.Latinizer(newCourse.Name),
 
 		CreatedAt: newCourse.CreatedAt,
 		UpdatedAt: newCourse.UpdatedAt,
@@ -308,14 +308,14 @@ func (c *Controller) UpdateCourse(ctx *gin.Context) {
 	}
 	deleteImage(oldImagePath)
 
-	courseResponse := &models.CourseResponse{
+	courseResponse := models.CourseResponse{
 		ID:          course.ID,
 		Name:        course.Name,
 		CreatorName: creatorName,
 		Image:       course.Image,
 		Category:    course.Category,
 		Description: course.Description,
-		Route:       utils.Latinizer(payload.Name),
+		Route:       utils.Latinizer(course.Name),
 
 		UpdatedAt: course.UpdatedAt,
 	}
@@ -388,9 +388,6 @@ func (c *Controller) DeleteCourse(ctx *gin.Context) {
 			Description: course.Description,
 			Route:       utils.Latinizer(course.Name),
 			Chapters:    course.Chapters,
-
-			CreatedAt: course.CreatedAt,
-			UpdatedAt: course.UpdatedAt,
 		}
 		coursesResponse = append(coursesResponse, courseResponse)
 	}
