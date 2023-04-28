@@ -21,7 +21,7 @@ docker-push:
 
 docker-compose-up:
 	sudo docker-compose -f ./deployments/docker/docker-compose.yaml pull && \
-	sudo docker-compose -f ./deployments/docker/docker-compose.yaml up -d
+	sudo docker-compose -f ./deployments/docker/docker-compose.yaml up
 
 docker-compose-down-all:
 	sudo docker-compose -f ./deployments/docker/docker-compose.yaml down -v --rmi all

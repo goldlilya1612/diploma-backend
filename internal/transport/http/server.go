@@ -49,7 +49,7 @@ func NewGinServer(config *Config) *GinServer {
 }
 
 func (gs *GinServer) prepareHealthchecker() {
-	gs.InitialRoute.GET("/healthchecker", func(ctx *gin.Context) {
+	gs.InitialRoute.GET("/healthcheck", func(ctx *gin.Context) {
 		message := "Connected"
 		status := "success"
 		ctx.JSON(http.StatusOK, gin.H{"status": status, "message": message})
