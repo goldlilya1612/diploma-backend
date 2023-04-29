@@ -1,6 +1,7 @@
 package course
 
 import (
+	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/goldlilya1612/diploma-backend/internal/controllers/auth"
 	"github.com/goldlilya1612/diploma-backend/internal/models"
@@ -8,6 +9,7 @@ import (
 	"github.com/goldlilya1612/diploma-backend/internal/utils"
 	"gorm.io/gorm/clause"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -18,6 +20,9 @@ func (c *Controller) articlesRoute(rg *gin.RouterGroup) {
 	articlesRouter.POST("/create", c.authController.DeserializeUser(), c.authController.CheckAccessRole(auth.LecturerRole), c.CreateArticle)
 	articlesRouter.PATCH("/update", c.authController.DeserializeUser(), c.authController.CheckAccessRole(auth.LecturerRole), c.UpdateArticle)
 	articlesRouter.DELETE("/delete", c.authController.DeserializeUser(), c.authController.CheckAccessRole(auth.LecturerRole), c.DeleteArticles)
+
+	articlesRouter.PATCH("/update-content", c.authController.DeserializeUser(), c.authController.CheckAccessRole(auth.LecturerRole), c.UpdateContent)
+	articlesRouter.GET("/get-content", c.authController.DeserializeUser(), c.authController.CheckAccessRole(auth.LecturerRole), c.GetContent)
 
 }
 
@@ -217,5 +222,98 @@ func (c *Controller) DeleteArticles(ctx *gin.Context) {
 		Status:     serv.SuccessResponseStatus,
 		StatusCode: http.StatusOK,
 		Data:       map[string]interface{}{"deletedArticles": articlesResponse},
+	})
+}
+
+func (c *Controller) UpdateContent(ctx *gin.Context) {
+	var payload *models.UpdateContent
+
+	err := ctx.ShouldBindJSON(&payload)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, models.HTTPResponse{
+			Status:     serv.ErrResponseStatus,
+			StatusCode: http.StatusBadRequest,
+			Message:    err.Error(),
+		})
+		return
+	}
+
+	article := models.Article{}
+	res := c.DB.
+		Preload("Chapter.Course").
+		First(&article, "Articles.id = ?", payload.ID)
+	if res.Error != nil && strings.Contains(res.Error.Error(), "record not found") {
+		message := fmt.Sprintf("Article with id=%d not found", payload.ID)
+		ctx.JSON(http.StatusBadRequest, models.HTTPResponse{
+			Status:     serv.ErrResponseStatus,
+			StatusCode: http.StatusBadRequest,
+			Message:    message,
+		})
+		return
+	} else if res.Error != nil {
+		ctx.JSON(http.StatusBadRequest, models.HTTPResponse{
+			Status:     serv.ErrResponseStatus,
+			StatusCode: http.StatusBadRequest,
+			Message:    res.Error.Error(),
+		})
+		return
+	}
+
+	currentUser := ctx.MustGet("currentUser").(models.User)
+	if currentUser.ID != article.Chapter.Course.CreatorID {
+		message := "Access denied"
+		ctx.JSON(http.StatusForbidden, models.HTTPResponse{
+			Status:     serv.ErrResponseStatus,
+			StatusCode: http.StatusForbidden,
+			Message:    message,
+		})
+		return
+	}
+
+	article.Content = payload.Content
+	res = c.DB.Updates(&article)
+	if res.Error != nil {
+		ctx.JSON(http.StatusConflict, models.HTTPResponse{
+			Status:     serv.ErrResponseStatus,
+			StatusCode: http.StatusConflict,
+			Message:    res.Error.Error(),
+		})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, models.HTTPResponse{
+		Status:     serv.SuccessResponseStatus,
+		StatusCode: http.StatusOK,
+		Message:    "content updated",
+	})
+}
+
+func (c *Controller) GetContent(ctx *gin.Context) {
+
+	id := ctx.Request.URL.Query().Get("id")
+
+	content := ""
+	res := c.DB.Table("articles").Select("content").Where("id=?", id).Scan(&content)
+	if res.Error != nil && strings.Contains(res.Error.Error(), "record not found") {
+		message := fmt.Sprintf("Article with id=%s not found", id)
+		ctx.JSON(http.StatusBadRequest, models.HTTPResponse{
+			Status:     serv.ErrResponseStatus,
+			StatusCode: http.StatusBadRequest,
+			Message:    message,
+		})
+		return
+	} else if res.Error != nil {
+		ctx.JSON(http.StatusBadRequest, models.HTTPResponse{
+			Status:     serv.ErrResponseStatus,
+			StatusCode: http.StatusBadRequest,
+			Message:    res.Error.Error(),
+		})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, models.HTTPResponse{
+		Status:     serv.SuccessResponseStatus,
+		StatusCode: http.StatusOK,
+		Data:       map[string]interface{}{"content": content},
 	})
 }

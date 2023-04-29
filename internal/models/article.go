@@ -26,6 +26,11 @@ type UpdateArticle struct {
 	Name string `json:"name" binding:"required"`
 }
 
+type UpdateContent struct {
+	ID      int    `json:"id" binding:"required"`
+	Content string `json:"content" binding:"required"`
+}
+
 type ArticleResponse struct {
 	ID        int    `json:"id"`
 	Name      string `json:"name"`
