@@ -285,6 +285,11 @@ func (c *Controller) UpdateContent(ctx *gin.Context) {
 		Status:     serv.SuccessResponseStatus,
 		StatusCode: http.StatusOK,
 		Message:    "content updated",
+		Data: map[string]interface{}{
+			"courseID":  article.Chapter.Course.ID,
+			"chapterID": article.Chapter.ID,
+			"articleID": article.ID,
+		},
 	})
 }
 

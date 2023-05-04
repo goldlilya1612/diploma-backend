@@ -11,7 +11,7 @@ type Chapter struct {
 	UpdatedAt time.Time `json:"updatedAt"`
 
 	Course   Course    `json:"-"`
-	Articles []Article `gorm:"constraint:OnDelete:CASCADE;"`
+	Articles []Article `json:"articles" gorm:"constraint:OnDelete:CASCADE;"`
 }
 
 type CreateChapter struct {

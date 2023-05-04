@@ -195,6 +195,7 @@ func (c *Controller) GetCourses(ctx *gin.Context) {
 	res := c.DB.
 		Joins("Lecturer").
 		Joins("Image").
+		Preload("Chapters.Articles").
 		Order("Courses.id").
 		Find(&courses)
 	if res.Error != nil {
@@ -215,6 +216,8 @@ func (c *Controller) GetCourses(ctx *gin.Context) {
 			Category:    c.Category,
 			Description: c.Description,
 			Route:       utils.Latinizer(c.Name),
+
+			Chapters: c.Chapters,
 
 			CreatedAt: c.CreatedAt,
 			UpdatedAt: c.UpdatedAt,
