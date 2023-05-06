@@ -1,12 +1,14 @@
 package http
 
 import (
+	"context"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-contrib/location"
 	"github.com/gin-gonic/gin"
 	"log"
 	"net"
 	"net/http"
+	"time"
 )
 
 const (
@@ -19,14 +21,14 @@ type Router interface {
 }
 
 type GinServer struct {
-	Config       *Config
-	Server       *gin.Engine
-	InitialRoute *gin.RouterGroup
+	config       *Config
+	server       *http.Server
+	initialRoute *gin.RouterGroup
 }
 
 func NewGinServer(config *Config) *GinServer {
 
-	serv := gin.Default()
+	router := gin.Default()
 
 	locationConf := location.Config{
 		Host:   net.JoinHostPort(config.Host, config.Port),
@@ -39,34 +41,63 @@ func NewGinServer(config *Config) *GinServer {
 		ExposeHeaders:    config.ExposeHeaders,
 		AllowCredentials: config.AllowCredentials,
 	}
-	serv.Use(location.New(locationConf), cors.New(corsConf))
+	router.Use(location.New(locationConf), cors.New(corsConf))
+
+	serv := &http.Server{
+		Addr:    net.JoinHostPort(config.Host, config.Port),
+		Handler: router,
+	}
 
 	return &GinServer{
-		Config:       config,
-		Server:       serv,
-		InitialRoute: serv.RouterGroup.Group("/api"),
+		config:       config,
+		server:       serv,
+		initialRoute: router.RouterGroup.Group("/api"),
 	}
 }
 
-func (gs *GinServer) prepareHealthchecker() {
-	gs.InitialRoute.GET("/healthcheck", func(ctx *gin.Context) {
+func (gs *GinServer) gracefulPowerOff() {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if err := gs.server.Shutdown(ctx); err != nil {
+		log.Printf("rror shutting down server %s", err)
+	} else {
+		log.Println("Server stopping...")
+	}
+
+	log.Println("Timeout of 5 seconds")
+	select {
+	case <-ctx.Done():
+	}
+	log.Println("Server successfully stopped")
+}
+
+func (gs *GinServer) prepareHealthcheck() {
+	gs.initialRoute.GET("/healthcheck", func(ctx *gin.Context) {
 		message := "Connected"
-		status := "success"
-		ctx.JSON(http.StatusOK, gin.H{"status": status, "message": message})
+		ctx.JSON(http.StatusOK, gin.H{"status": SuccessResponseStatus, "message": message})
 	})
 }
 
-func (gs *GinServer) start() {
-	log.Fatal(gs.Server.Run(":" + gs.Config.Port))
+func (gs *GinServer) serve() {
+	if err := gs.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		log.Fatalf("listen: %s\n", err)
+	}
 }
 
-func (gs *GinServer) StartGinServer() {
-	gs.prepareHealthchecker()
-	gs.start()
+func (gs *GinServer) StartGinServer(ctxServ context.Context, cancelServ context.CancelFunc) {
+	gs.prepareHealthcheck()
+	go gs.serve()
+
+	select {
+	case <-ctxServ.Done():
+		cancelServ()
+		gs.gracefulPowerOff()
+	}
 }
 
 func (gs *GinServer) StartAllRoutes(routers ...Router) {
 	for _, r := range routers {
-		r.Route(gs.InitialRoute)
+		r.Route(gs.initialRoute)
 	}
 }
