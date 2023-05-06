@@ -1,17 +1,13 @@
 package main
 
 import (
-	"context"
 	"flag"
-	"fmt"
 	"github.com/goldlilya1612/diploma-backend/internal/controllers/auth"
 	"github.com/goldlilya1612/diploma-backend/internal/controllers/course"
 	"github.com/goldlilya1612/diploma-backend/internal/controllers/user"
 	"github.com/goldlilya1612/diploma-backend/internal/database"
 	"github.com/goldlilya1612/diploma-backend/internal/transport/http"
-	"os"
-	"os/signal"
-	"syscall"
+	"log"
 )
 
 func main() {
@@ -32,22 +28,17 @@ func main() {
 	//})
 	//viper.WatchConfig()
 
-	// ctx for graceful shutdown server
-	ctxServ, cancelServ := signal.NotifyContext(context.Background(),
-		syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
-	defer cancelServ()
-
 	// init psql
 	dbConfig, err := database.NewConfigFromEnv(psqlConfigPath, psqlConfigName)
 	if err != nil {
-		fmt.Fprint(os.Stderr, err)
-		os.Exit(1)
+		log.Fatal(err)
 	}
 	psql := database.NewPostgreSQL(dbConfig)
+	defer psql.Close()
+	
 	err = psql.StartPostgreSQL()
 	if err != nil {
-		fmt.Fprint(os.Stderr, err)
-		os.Exit(1)
+		log.Fatal(err)
 	}
 
 	// init controllers
@@ -59,10 +50,9 @@ func main() {
 	// init server
 	serverConfig, err := http.NewConfigFromEnv(ginConfigPath, ginConfigName)
 	if err != nil {
-		fmt.Fprint(os.Stderr, err)
-		os.Exit(1)
+		log.Fatal(err)
 	}
 	server := http.NewGinServer(serverConfig)
 	server.StartAllRoutes(authController, userController, courseController)
-	server.StartGinServer(ctxServ, cancelServ)
+	server.StartGinServer()
 }

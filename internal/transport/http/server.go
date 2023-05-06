@@ -8,6 +8,8 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"os/signal"
+	"syscall"
 	"time"
 )
 
@@ -60,7 +62,7 @@ func (gs *GinServer) gracefulPowerOff() {
 	defer cancel()
 
 	if err := gs.server.Shutdown(ctx); err != nil {
-		log.Printf("rror shutting down server %s", err)
+		log.Printf("error shutting down server %s", err)
 	} else {
 		log.Println("Server stopping...")
 	}
@@ -85,7 +87,13 @@ func (gs *GinServer) serve() {
 	}
 }
 
-func (gs *GinServer) StartGinServer(ctxServ context.Context, cancelServ context.CancelFunc) {
+func (gs *GinServer) StartGinServer() {
+
+	// ctx for graceful shutdown server
+	ctxServ, cancelServ := signal.NotifyContext(context.Background(),
+		syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
+	defer cancelServ()
+
 	gs.prepareHealthcheck()
 	go gs.serve()
 

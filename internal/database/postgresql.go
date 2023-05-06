@@ -5,6 +5,7 @@ import (
 	"github.com/goldlilya1612/diploma-backend/internal/models"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
+	"log"
 )
 
 type PostgreSQL struct {
@@ -15,6 +16,19 @@ type PostgreSQL struct {
 func NewPostgreSQL(config *Config) *PostgreSQL {
 	return &PostgreSQL{
 		config: config,
+	}
+}
+
+func (p *PostgreSQL) Close() {
+	db, err := p.DB.DB()
+	if err != nil {
+		log.Println(err.Error())
+	}
+
+	if err := db.Close(); err != nil {
+		log.Printf("error close db %s", err)
+	} else {
+		log.Println("DB connection successfully closed")
 	}
 }
 
@@ -33,7 +47,6 @@ func (p *PostgreSQL) connect() error {
 	if err != nil {
 		return fmt.Errorf("Unable to connect to database: %v\n", err)
 	}
-
 	p.DB = db
 
 	return nil
@@ -63,14 +76,15 @@ func (p *PostgreSQL) initDB() error {
 }
 
 func (p *PostgreSQL) StartPostgreSQL() error {
+
 	err := p.connect()
 	if err != nil {
-		return err
+		log.Fatal(err)
 	}
 
 	err = p.initDB()
 	if err != nil {
-		return err
+		log.Fatal(err)
 	}
 
 	return nil
