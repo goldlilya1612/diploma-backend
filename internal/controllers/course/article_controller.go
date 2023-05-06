@@ -22,7 +22,7 @@ func (c *Controller) articlesRoute(rg *gin.RouterGroup) {
 	articlesRouter.DELETE("/delete", c.authController.DeserializeUser(), c.authController.CheckAccessRole(auth.LecturerRole), c.DeleteArticles)
 
 	articlesRouter.PATCH("/update-content", c.authController.DeserializeUser(), c.authController.CheckAccessRole(auth.LecturerRole), c.UpdateContent)
-	articlesRouter.GET("/get-content", c.authController.DeserializeUser(), c.authController.CheckAccessRole(auth.LecturerRole), c.GetContent)
+	articlesRouter.GET("/get-content", c.authController.DeserializeUser(), c.GetContent)
 
 }
 
