@@ -1,6 +1,8 @@
 package database
 
-import "github.com/spf13/viper"
+import (
+	"github.com/spf13/viper"
+)
 
 type Config struct {
 	Host     string `mapstructure:"POSTGRES_HOST"`
@@ -11,14 +13,19 @@ type Config struct {
 	SslMode  string `mapstructure:"POSTGRES_SSL_MODE"`
 }
 
-func NewDefaultConfig() *Config {
-	return &Config{
-		Host:     "localhost",
-		Port:     "5432",
-		Database: "postgres",
-		User:     "postgres",
-		Password: "password",
-		SslMode:  "disable",
+var envs = map[string]string{
+	"POSTGRES_HOST":     "localhost",
+	"POSTGRES_PORT":     "5432",
+	"POSTGRES_DB":       "postgres",
+	"POSTGRES_USER":     "postgres",
+	"POSTGRES_PASSWORD": "password",
+	"POSTGRES_SSL_MODE": "disable",
+}
+
+func bindEnvs() {
+	for k, v := range envs {
+		viper.BindEnv(k)
+		viper.SetDefault(k, v)
 	}
 }
 
@@ -30,11 +37,14 @@ func NewConfigFromEnv(path, name string) (*Config, error) {
 
 	viper.AllowEmptyEnv(true)
 
-	viper.AutomaticEnv()
-
 	err := viper.ReadInConfig()
 	if err != nil {
-		return nil, err
+		switch err.(type) {
+		case viper.ConfigFileNotFoundError:
+			bindEnvs()
+		default:
+			return nil, err
+		}
 	}
 
 	var config Config

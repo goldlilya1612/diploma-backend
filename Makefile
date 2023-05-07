@@ -1,7 +1,5 @@
 BIN_OUTPUT = bin/
 
-IMAGE_TAG = 0.1
-
 run:
 	go run ./cmd/web/main.go
 

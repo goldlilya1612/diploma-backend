@@ -4,28 +4,28 @@ services:
   db:
     container_name: postgres-container
     image: postgres:15-alpine
-    restart: always
-    user: postgres
+    restart: unless-stopped
     env_file:
-      - ../../configs/default-psql-conf.env
-      - ../../configs/default-gin-conf.env
+      - ../../configs/docker-psql-conf.env
     ports:
       - '5432:5432'
     volumes:
       - db:/var/lib/postgresql/data
     healthcheck:
-      test: [ "CMD", "curl", "-f", "http://postgres-container:5432" ]
-      interval: 30s
-      timeout: 10s
+      test: ["CMD-SHELL", "pg_isready -h $$POSTGRES_HOST -p $$POSTGRES_PORT"]
+      interval: 10s
+      timeout: 5s
       retries: 5
 
   web_backend:
     image: sergencio/web_backend
     container_name: web-backend-container
     depends_on:
-      - db
+      db:
+       condition: service_healthy
     env_file:
-      - ../../configs/default-psql-conf.env
+      - ../../configs/docker-psql-conf.env
+      - ../../configs/default-gin-conf.env
     restart: always
     ports:
       - "8080:8080"

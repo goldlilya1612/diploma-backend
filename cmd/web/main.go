@@ -35,7 +35,7 @@ func main() {
 	}
 	psql := database.NewPostgreSQL(dbConfig)
 	defer psql.Close()
-	
+
 	err = psql.StartPostgreSQL()
 	if err != nil {
 		log.Fatal(err)

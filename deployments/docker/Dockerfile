@@ -12,8 +12,7 @@ RUN mkdir -p /go/bin
 WORKDIR /go/bin
 
 COPY --from=build /app/web_backend .
-COPY --from=build /app/configs ../configs
 
 EXPOSE 8080
 
-CMD ["./web_backend", "-psql_conf_path", "../configs/", "-gin_conf_path", "../configs/"]
+CMD ["./web_backend"]
